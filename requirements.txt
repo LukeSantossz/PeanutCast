@@ -1,0 +1,49 @@
+# Dependências do PeanutCast.
+#
+# Instalar:  python -m pip install -r requirements.txt
+# Conferir:  python -m pip list --format=freeze
+#
+# ---------------------------------------------------------------------------
+# Este arquivo é o único lugar do projeto onde versão de biblioteca aparece.
+# Os documentos citam o nome da biblioteca, nunca o número: se o número
+# estivesse em dois lugares, um dia os dois discordariam, e quem descobre é
+# quem tenta rodar o projeto na véspera da entrega.
+#
+# Todas as versões estão travadas com "==" de propósito. O cronograma pede que
+# os quatro rodem o mesmo código com as mesmas bibliotecas, e num projeto de
+# dois meses uma atualização silenciosa de biblioteca é bug que ninguém
+# consegue reproduzir.
+#
+# Para subir uma versão: troque aqui, rode o app, e avise o grupo. Todo mundo
+# roda o pip install de novo. Não suba versão sozinho na sua máquina.
+#
+# Testado em Python 3.14.3, Windows.
+# ---------------------------------------------------------------------------
+
+# --- Painel: em uso desde a Semana 1 ---
+streamlit==1.63.0
+streamlit-authenticator==0.4.2
+PyYAML==6.0.3
+
+# --- Coleta: entra na Semana 2, com o IBGE e a NASA POWER ---
+requests==2.32.5
+
+# --- Tratamento: entra na Semana 4 ---
+pandas==3.0.2
+numpy==2.4.3
+
+# --- Modelos: entram na Semana 6 ---
+scikit-learn==1.8.0
+xgboost==3.4.1
+
+# --- Gráficos: entram na Semana 8 ---
+plotly==7.0.0
+
+# ---------------------------------------------------------------------------
+# Instaladas junto, por dependência de outras. Estão travadas porque o login
+# depende delas: o streamlit-authenticator usa bcrypt para a senha, PyJWT para
+# o token e extra-streamlit-components para o cookie.
+# ---------------------------------------------------------------------------
+bcrypt==5.0.0
+PyJWT==2.12.1
+extra-streamlit-components==0.1.81

@@ -1,0 +1,28 @@
+"""Onde cada coisa fica no disco.
+
+Um módulo só para caminhos evita que cada arquivo monte o seu próprio e faz o
+app rodar igual de qualquer diretório, porque tudo parte da posição deste
+arquivo e não do diretório atual.
+"""
+from pathlib import Path
+
+# Este arquivo está em peanutcast/, então a raiz do projeto é a pasta de cima.
+RAIZ = Path(__file__).resolve().parent.parent
+
+DADOS = RAIZ / "dados"
+DADOS_BRUTOS = DADOS / "brutos"        # o que sai do IBGE e da NASA, sem tratamento
+DADOS_TRATADOS = DADOS / "tratados"    # a tabela integrada, pronta para treinar
+MODELOS = RAIZ / "modelos"             # modelos treinados e serializados
+
+CREDENCIAIS = RAIZ / "credenciais.yaml"
+FAVORITOS = DADOS / "favoritos.json"
+
+
+def garantir_pastas():
+    """Cria as pastas de trabalho se ainda não existirem.
+
+    Chamado na abertura do app para ninguém precisar criar pasta à mão. As
+    pastas ficam fora do Git, então cada máquina cria as suas.
+    """
+    for pasta in (DADOS_BRUTOS, DADOS_TRATADOS, MODELOS):
+        pasta.mkdir(parents=True, exist_ok=True)

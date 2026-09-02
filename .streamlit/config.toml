@@ -1,0 +1,12 @@
+# Cores da marca do PeanutCast. Os valores saem de mvp/marca-visual.md e são
+# os mesmos usados nos slides e na planilha.
+[theme]
+base = "light"
+primaryColor = "#C8945F"           # amendoim: botões e destaques
+backgroundColor = "#F5EFE4"        # bege: fundo da página
+secondaryBackgroundColor = "#FFFFFF"  # branco: cartões e barra lateral
+textColor = "#3D2B1F"              # marrom casca: todo o texto
+font = "sans serif"
+
+[server]
+headless = true

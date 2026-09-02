@@ -1,0 +1,29 @@
+# Modelo do arquivo de credenciais.
+#
+# Copie para credenciais.yaml, que é ignorado pelo Git e nunca deve ser
+# commitado. Troque a chave do cookie por qualquer texto longo e aleatório:
+# é ela que assina o cookie de sessão.
+#
+# A senha pode ser escrita aqui em texto puro. Na primeira vez que o app
+# abrir, a biblioteca troca por hash e regrava o arquivo. Depois disso a senha
+# original não existe mais em lugar nenhum, então anote antes.
+#
+# expiry_days em 0 desliga o cookie de "continuar conectado": a sessão vale
+# enquanto a aba estiver aberta, e recarregar a página pede login de novo.
+# É de propósito. O logout da biblioteca não apaga o cookie nesta versão, e um
+# Sair que não desconecta é pior num computador de laboratório do que ter de
+# digitar a senha outra vez. Se um dia a biblioteca corrigir isso, dá para
+# subir esse número e testar.
+
+cookie:
+  name: peanutcast_sessao
+  key: troque_esta_chave_por_um_texto_longo_e_aleatorio
+  expiry_days: 0
+
+credentials:
+  usernames:
+    lucas:
+      email: lucas@exemplo.com
+      first_name: Lucas
+      last_name: Gonçalves
+      password: trocar123

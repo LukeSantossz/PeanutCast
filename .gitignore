@@ -1,0 +1,65 @@
+# ---------------------------------------------------------------------------
+# O repositório guarda apenas o código do PeanutCast.
+#
+# Documentação do MVP, entregas do curso e material do professor ficam de fora.
+# São documentos, e documento binário não tem diff: um .pptx no histórico é
+# ruído, porque ninguém consegue revisar o que mudou de uma versão para a
+# outra. O material do professor, além disso, não é nosso para redistribuir.
+#
+# Documento que precisa circular é compartilhado como arquivo, não commitado.
+# ---------------------------------------------------------------------------
+
+# Documentação do MVP, geradores dos documentos e arquivos entregues
+mvp/
+
+# Material de referência do curso
+referencia/
+
+# Qualquer documento de escritório, em qualquer lugar do repositório
+*.pdf
+*.pptx
+*.ppt
+*.docx
+*.doc
+*.xlsx
+*.xls
+*.odt
+*.ods
+*.odp
+~$*
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+
+# ---------------------------------------------------------------------------
+# Dados e modelos: são baixados e treinados, não versionados
+# ---------------------------------------------------------------------------
+dados/
+*.csv
+*.parquet
+*.pkl
+*.joblib
+
+# ---------------------------------------------------------------------------
+# Credenciais da autenticação
+# ---------------------------------------------------------------------------
+.streamlit/secrets.toml
+credenciais.yaml
+favoritos.json
+
+# ---------------------------------------------------------------------------
+# Sistema operacional e editores
+# ---------------------------------------------------------------------------
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
