@@ -100,8 +100,8 @@ a março do ano da colheita, que é a janela da safra das águas.
 
 Comparação entre modelos, das Semanas 6 e 7: `python scripts/comparar.py` roda as três
 baselines e os modelos no walk-forward, em cerca de 40 segundos, e grava o resultado em
-`modelos/comparacao.json`. O melhor modelo com clima (Regressão Linear com Ridge, clima de
-dezembro a fevereiro) fica 3 kg/ha à frente da baseline sem clima, dentro do ruído. O
+`modelos/comparacao.json`. O melhor modelo com clima (regressão linear robusta, clima de dezembro
+a fevereiro) fica 4 kg/ha à frente da baseline mais forte sem clima, dentro do ruído. O
 teste de 2023 a 2025 ainda não foi aberto.
 
 Tabela modelável e protocolo de validação, da Semana 5: `peanutcast/atributos.py` monta

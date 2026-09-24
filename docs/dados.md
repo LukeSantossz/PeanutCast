@@ -44,7 +44,9 @@ número do IBGE mas fica fora da janela. Em SP ela é a menor das duas, e entra 
 limitação.
 
 A NASA POWER tem células de cerca de 50 km. Consultada nos 24 centroides, ela devolve só
-6 séries distintas, e municípios vizinhos recebem exatamente o mesmo clima:
+6 séries distintas de chuva, temperatura, umidade e vento, e municípios vizinhos recebem
+exatamente os mesmos valores. A radiação vem de uma grade ainda mais grossa e tem 4
+séries. Os grupos da chuva e da temperatura:
 
 | Série | Municípios |
 |---|---|

@@ -22,9 +22,6 @@ import pandas as pd  # noqa: E402
 
 from peanutcast import atributos, caminhos, modelos, validacao  # noqa: E402
 
-# O ganho do clima é medido contra a média corrigida pela tendência, que é o
-# modelo de desvio sem o clima. Ver modelos._media_corrigida.
-BASELINE_PRINCIPAL = "Média corrigida pela tendência"
 
 
 def parametros(nome):
@@ -53,15 +50,19 @@ def main():
         todas.append(previsoes.assign(previsor=nome))
 
     resultado = pd.DataFrame(linhas).set_index("previsor")
-    referencia = resultado.loc[BASELINE_PRINCIPAL, "mae"]
-    resultado["ganho_sobre_baseline"] = referencia - resultado["mae"]
+    # O ganho é medido contra a baseline mais forte da rodada, qualquer que seja.
+    # Escolher a régua por modelo abriria espaço para escolher a mais fraca.
+    baselines = resultado.loc[list(modelos.BASELINES)]
+    regua = baselines["mae"].idxmin()
+    resultado["ganho_sobre_baseline"] = baselines.loc[regua, "mae"] - resultado["mae"]
+    print(f"\nRégua do ganho: {regua}, MAE {baselines.loc[regua, 'mae']:.0f} kg/ha")
 
     print()
     print(resultado.round(2).to_string())
     melhor = resultado.drop(index=list(modelos.BASELINES)).sort_values("mae").iloc[0]
     print(
         f"\nMelhor modelo: {melhor.name}, MAE {melhor['mae']:.0f} kg/ha. "
-        f"Ganho sobre a baseline: {melhor['ganho_sobre_baseline']:+.0f} kg/ha "
+        f"Ganho sobre a régua: {melhor['ganho_sobre_baseline']:+.0f} kg/ha "
         f"(desvio do MAE entre anos: {melhor['mae_desvio_entre_anos']:.0f})."
     )
 

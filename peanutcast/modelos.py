@@ -17,7 +17,7 @@ da Semana 7, e só na validação.
 """
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression, RidgeCV
+from sklearn.linear_model import HuberRegressor, LinearRegression, RidgeCV
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBRegressor
@@ -39,10 +39,17 @@ def _media_corrigida(treino, val):
     return val["rend_medio_munic"] + desvio.mean()
 
 
+def _media_corrigida_mediana(treino, val):
+    """A mesma correção, com a mediana: é a régua da regressão robusta (Huber)."""
+    desvio = treino[atributos.ALVO] - treino["rend_medio_munic"]
+    return val["rend_medio_munic"] + desvio.median()
+
+
 BASELINES = {
     "Média das 3 últimas safras": lambda treino, val: val["rend_medio_munic"],
     "Safra anterior": lambda treino, val: val["rend_safra_anterior"],
     "Média corrigida pela tendência": _media_corrigida,
+    "Média corrigida pela tendência (mediana)": _media_corrigida_mediana,
 }
 
 
@@ -81,6 +88,13 @@ def ridge():
     return make_pipeline(StandardScaler(), RidgeCV(alphas=np.logspace(-1, 4, 30)))
 
 
+def huber():
+    # Regressão linear robusta: anos extremos pesam menos no ajuste. Sem clima,
+    # ela se reduz à mediana do desvio, e por isso é comparada à baseline
+    # corrigida pela mediana.
+    return make_pipeline(StandardScaler(), HuberRegressor(alpha=1.0, max_iter=1000))
+
+
 def random_forest_ajustado():
     return RandomForestRegressor(
         n_estimators=500,
@@ -113,6 +127,7 @@ FABRICAS = {
 
 AJUSTADOS = {
     "Regressão Linear (Ridge)": ridge,
+    "Regressão Linear (Huber)": huber,
     "Random Forest": random_forest_ajustado,
     "XGBoost": xgboost_ajustado,
 }
