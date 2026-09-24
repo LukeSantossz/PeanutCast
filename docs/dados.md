@@ -42,6 +42,23 @@ N**: a safra das águas, plantada de setembro a novembro e colhida de janeiro a 
 a PAM registra no ano da colheita. A safra da seca, plantada em fevereiro, também entra
 no número do IBGE e fica fora da janela. Ela é menor em SP e vai como limitação.
 
+**Resolução do clima.** A NASA POWER tem células de cerca de 50 km. Consultada nos 24
+centroides, ela devolve **só 6 séries distintas**: municípios vizinhos recebem exatamente
+o mesmo clima.
+
+| Série | Municípios |
+|---|---|
+| 1 | Adamantina, Flora Rica, Flórida Paulista, Lucélia, Pacaembu |
+| 2 | Arco-Íris, Herculândia, Iacri, Parapuã, Quintana, Tupã |
+| 3 | Echaporã, Lupércio, Ocauçu, Oscar Bressane |
+| 4 | Garça, Marília, Oriente, Pompéia, Vera Cruz |
+| 5 | Mariápolis, Sagres |
+| 6 | Rinópolis, Salmourão |
+
+O clima explica a variação de um ano para outro, e quase nada da diferença entre
+vizinhos no mesmo ano, que fica com `rend_medio_munic`. Não é erro de coleta, é a
+resolução da fonte, e vai como limitação.
+
 ## Da tabela integrada à modelável (`atributos.py`)
 
 | Regra | Valor | Por quê |
