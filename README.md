@@ -27,7 +27,9 @@ como arquivo.
 | IBGE / SIDRA-PAM | Área plantada, área colhida, produção e rendimento por município e ano |
 | NASA POWER | Precipitação, temperaturas, umidade, radiação e vento |
 
-Municípios: Tupã, Marília, Pompeia, Herculândia, Quintana, Bastos e vizinhos.
+Municípios: 24 das microrregiões de Marília, Tupã e Adamantina, entre eles Tupã,
+Marília, Pompéia, Herculândia, Quintana, Garça e Adamantina. Bastos ficou de fora: o
+IBGE não registra amendoim lá desde 2007.
 
 ## O que o produto faz
 

@@ -11,7 +11,7 @@ import streamlit as st
 
 from peanutcast import auth, favoritos
 from peanutcast.caminhos import garantir_pastas
-from peanutcast.municipios import MUNICIPIOS
+from peanutcast.municipios import NOMES
 
 st.set_page_config(page_title="PeanutCast", page_icon="🥜", layout="wide")
 
@@ -43,7 +43,7 @@ st.caption("Previsão de produtividade do amendoim na Alta Paulista")
 # faz a escolha sobreviver ao clique no botão de favoritar.
 municipio = st.selectbox(
     "Município",
-    MUNICIPIOS,
+    NOMES,
     key="municipio",
 )
 
