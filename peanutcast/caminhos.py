@@ -14,6 +14,11 @@ DADOS_BRUTOS = DADOS / "brutos"        # o que sai do IBGE e da NASA, sem tratam
 DADOS_TRATADOS = DADOS / "tratados"    # a tabela integrada, pronta para treinar
 MODELOS = RAIZ / "modelos"             # modelos treinados e serializados
 
+IBGE_PAM = DADOS_BRUTOS / "ibge_pam.csv"            # SIDRA 1612, formato longo
+CENTROIDES = DADOS_BRUTOS / "centroides.csv"        # latitude e longitude por município
+NASA_POWER = DADOS_BRUTOS / "nasa_power"            # um CSV diário por município
+DATASET = DADOS_TRATADOS / "dataset.csv"            # produção + clima, uma linha por município e ano
+
 CREDENCIAIS = RAIZ / "credenciais.yaml"
 FAVORITOS = DADOS / "favoritos.json"
 
@@ -24,5 +29,5 @@ def garantir_pastas():
     Chamado na abertura do app para ninguém precisar criar pasta à mão. As
     pastas ficam fora do Git, então cada máquina cria as suas.
     """
-    for pasta in (DADOS_BRUTOS, DADOS_TRATADOS, MODELOS):
+    for pasta in (DADOS_BRUTOS, NASA_POWER, DADOS_TRATADOS, MODELOS):
         pasta.mkdir(parents=True, exist_ok=True)
