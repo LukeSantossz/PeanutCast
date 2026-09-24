@@ -43,6 +43,7 @@ env/
 # Dados e modelos: são baixados e treinados, não versionados
 # ---------------------------------------------------------------------------
 dados/
+modelos/
 *.csv
 *.parquet
 *.pkl
