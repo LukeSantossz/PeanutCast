@@ -4,13 +4,13 @@ Rodar com:  streamlit run app.py
 
 Estado atual: entra, cadastra, guarda os municípios favoritos e mostra o
 histórico de rendimento do IBGE. A previsão de verdade chega na Semana 8; até
-lá o espaço dela mostra a média histórica, que é a baseline que o modelo vai
-precisar bater (D3). O app cresce trocando peça, não sendo reescrito.
+lá o espaço dela mostra a média das últimas safras, que é a baseline que o
+modelo vai precisar bater (D3). O app cresce trocando peça, não sendo reescrito.
 """
 import plotly.express as px
 import streamlit as st
 
-from peanutcast import auth, dados, favoritos
+from peanutcast import atributos, auth, dados, favoritos
 from peanutcast.caminhos import garantir_pastas
 from peanutcast.municipios import NOMES
 
@@ -100,10 +100,20 @@ with esquerda:
 with direita:
     st.subheader("Previsão para a próxima safra")
     with st.container(border=True):
-        media = historico["rendimento_kg_ha"].mean()
-        st.metric("Média histórica do município", f"{media:,.0f} kg/ha".replace(",", "."))
-        st.caption(
-            "Ainda não é previsão: a previsão com clima chega na Semana 8. Esta média "
-            "é o palpite que o modelo vai precisar superar para mostrar que o clima "
-            "acrescenta alguma coisa."
-        )
+        media, anos = atributos.media_recente(historico)
+        if anos:
+            st.metric(
+                f"Média das últimas {len(anos)} safras",
+                f"{media:,.0f} kg/ha".replace(",", "."),
+            )
+            st.caption(
+                f"Safras de {', '.join(str(a) for a in anos)}. Ainda não é previsão: "
+                "a previsão com clima chega na Semana 8. Esta média é o palpite que o "
+                "modelo vai precisar superar para mostrar que o clima acrescenta "
+                "alguma coisa."
+            )
+        else:
+            st.caption(
+                f"Nenhuma safra com pelo menos {atributos.AREA_MINIMA_HA} ha colhidos, "
+                "então não há média que sirva de referência."
+            )

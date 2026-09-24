@@ -39,6 +39,9 @@ xgboost==3.4.1
 # --- Gráficos: histórico em uso desde a Semana 3 ---
 plotly==7.0.0
 
+# --- Testes: entram na Semana 5, com a regra de não olhar para o futuro ---
+pytest==9.0.3
+
 # ---------------------------------------------------------------------------
 # Instaladas junto, por dependência de outras. Estão travadas porque o login
 # depende delas: o streamlit-authenticator usa bcrypt para a senha, PyJWT para

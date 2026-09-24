@@ -51,10 +51,15 @@ decisões, não limitações acidentais:
 
 ## Modelo
 
-`y` = rendimento em kg/ha. `X` = média histórica do município, calculada só com anos
-anteriores, mais o clima da safra. Três modelos comparados (regressão linear, Random
-Forest e XGBoost) contra dois palpites simples: a média histórica do município e a
-repetição do ano anterior.
+`y` = rendimento em kg/ha. `X` = média das três safras anteriores do município mais o
+clima da safra. Três modelos comparados (regressão linear, Random Forest e XGBoost)
+contra dois palpites simples: essa mesma média e a repetição da safra anterior.
+
+A média é das três últimas safras, e não de todas, porque o rendimento da região sobe
+cerca de 80 kg/ha por ano. A média de todas fica para trás da tendência e daria ao
+modelo um ganho que é tecnologia, não clima. Validação por ordem de tempo: cada ano de
+2012 a 2022 é previsto por um modelo treinado só com os anos anteriores, e 2023 a 2025
+ficam guardados como teste final. Detalhes e números em [`docs/dados.md`](docs/dados.md).
 
 **O resultado do projeto não é o R² nem o MAE**, e sim a diferença entre o erro do
 modelo e o erro do palpite da média. Essa diferença mede quanto o clima contribui, que
@@ -68,6 +73,7 @@ python -m pip install -r requirements.txt
 cp credenciais.exemplo.yaml credenciais.yaml   # depois troque a chave do cookie
 python scripts/coletar.py                      # baixa IBGE e NASA POWER, uns 2 minutos
 python scripts/integrar.py                     # monta dados/tratados/dataset.csv
+python scripts/analisar_dados.py               # opcional: os números das decisões
 streamlit run app.py
 ```
 
@@ -92,8 +98,12 @@ Coleta e integração, das Semanas 2 a 4: 24 municípios, safras de 2000 a 2025,
 linhas com rendimento publicado. O clima de cada safra é o de setembro do ano anterior
 a março do ano da colheita, que é a janela da safra das águas.
 
+Tabela modelável e protocolo de validação, da Semana 5: `peanutcast/atributos.py` monta
+o X e o y sem olhar para o futuro, e `peanutcast/validacao.py` separa treino, validação e
+teste. Os testes rodam com `python -m pytest`.
+
 Na tela, o histórico de rendimento do município escolhido. No lugar da previsão, que
-chega na Semana 8, aparece a média histórica do município: é a baseline que o modelo
+chega na Semana 8, aparece a média das últimas três safras: é a baseline que o modelo
 precisa superar, então o número já é o de verdade, só não é previsão.
 
 A sessão dura enquanto a aba fica aberta. Recarregar a página pede login de novo, e
@@ -110,9 +120,14 @@ peanutcast/
   municipios.py            lista de municípios atendidos
   fontes.py                acesso às APIs do SIDRA, de malhas do IBGE e da NASA POWER
   dados.py                 leitura do dataset integrado pelo app
+  atributos.py             tabela modelável: o X e o y, sem olhar para o futuro
+  validacao.py             walk-forward, teste reservado e métricas
 scripts/
   coletar.py               baixa os dados brutos para dados/brutos/
   integrar.py              junta produção e clima em dados/tratados/dataset.csv
+  analisar_dados.py        os números por trás das decisões de atributos e validação
+tests/                     python -m pytest
+docs/dados.md              fontes, regras de tratamento e dicionário de colunas
 requirements.txt           versões travadas, iguais para os quatro
 credenciais.exemplo.yaml   modelo do arquivo de login
 .streamlit/config.toml     cores da marca
