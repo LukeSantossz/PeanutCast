@@ -36,7 +36,7 @@ numpy==2.4.3
 scikit-learn==1.8.0
 xgboost==3.4.1
 
-# --- Gráficos: entram na Semana 8 ---
+# --- Gráficos: histórico em uso desde a Semana 3 ---
 plotly==7.0.0
 
 # ---------------------------------------------------------------------------

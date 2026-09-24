@@ -66,8 +66,14 @@ agregado não prevê produtividade de amendoim, e isso também é resultado.
 ```bash
 python -m pip install -r requirements.txt
 cp credenciais.exemplo.yaml credenciais.yaml   # depois troque a chave do cookie
+python scripts/coletar.py                      # baixa IBGE e NASA POWER, uns 2 minutos
+python scripts/integrar.py                     # monta dados/tratados/dataset.csv
 streamlit run app.py
 ```
+
+A coleta baixa só o que ainda não existe em `dados/brutos/`; `--forcar` baixa tudo de
+novo. Cada arquivo bruto ganha um `.origem.json` ao lado, com a fonte e a data do
+download. A integração não acessa a internet e pode rodar quantas vezes precisar.
 
 O app abre em `http://localhost:8501`. O usuário de exemplo é `lucas` com senha
 `trocar123`. Na primeira execução a senha é convertida para hash e o arquivo é
@@ -80,9 +86,15 @@ precisa de maiúscula, minúscula, número e símbolo.
 
 ### O que já funciona
 
-Cadastro, login, sair e a lista de municípios favoritos por usuário. É a entrega da
-Semana 1. O gráfico do histórico chega na Semana 3 e a previsão na Semana 8; os dois
-lugares já estão marcados na tela.
+Cadastro, login, sair e a lista de municípios favoritos por usuário, da Semana 1.
+
+Coleta e integração, das Semanas 2 a 4: 24 municípios, safras de 2000 a 2025, 518
+linhas com rendimento publicado. O clima de cada safra é o de setembro do ano anterior
+a março do ano da colheita, que é a janela da safra das águas.
+
+Na tela, o histórico de rendimento do município escolhido. No lugar da previsão, que
+chega na Semana 8, aparece a média histórica do município: é a baseline que o modelo
+precisa superar, então o número já é o de verdade, só não é previsão.
 
 A sessão dura enquanto a aba fica aberta. Recarregar a página pede login de novo, e
 isso é de propósito: está explicado em `credenciais.exemplo.yaml`.
@@ -96,6 +108,11 @@ peanutcast/
   favoritos.py             municípios favoritos por usuário
   caminhos.py              onde ficam dados, modelos e credenciais
   municipios.py            lista de municípios atendidos
+  fontes.py                acesso às APIs do SIDRA, de malhas do IBGE e da NASA POWER
+  dados.py                 leitura do dataset integrado pelo app
+scripts/
+  coletar.py               baixa os dados brutos para dados/brutos/
+  integrar.py              junta produção e clima em dados/tratados/dataset.csv
 requirements.txt           versões travadas, iguais para os quatro
 credenciais.exemplo.yaml   modelo do arquivo de login
 .streamlit/config.toml     cores da marca
