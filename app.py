@@ -8,8 +8,8 @@ municípios" põe todos lado a lado sob o mesmo cenário, em mapa e tabela.
 "Modelos" mostra como cada modelo se saiu na validação e o que pesa na
 previsão.
 
-O modelo da previsão é provisório até a equipe congelar o modelo final (ver
-peanutcast/previsao.py). A tela não depende dessa escolha.
+O modelo da previsão é o principal da avaliação final, treinado com todas as
+safras (ver peanutcast/previsao.py).
 """
 import pandas as pd
 import plotly.express as px
@@ -313,8 +313,30 @@ with aba_modelos:
         st.caption(
             f"Cada safra de {inicio} a {fim} foi prevista por um modelo treinado só com "
             "as safras anteriores. A régua é o melhor palpite sem clima nenhum; o ganho "
-            "mostra quanto o clima acrescenta a ela. As safras de 2023 a 2025 estão "
-            "guardadas para a avaliação final."
+            "mostra quanto o clima acrescenta a ela. As safras de 2023 a 2025 ficaram "
+            "guardadas para a avaliação final, logo abaixo."
+        )
+
+    avaliacao = dados.carregar_teste()
+    if avaliacao is not None:
+        st.subheader("Avaliação final, safras de 2023 a 2025")
+        teste = pd.DataFrame(avaliacao["metricas"]).T[["mae", "rmse", "ganho_sobre_regua"]]
+        por_ano = pd.DataFrame(avaliacao["mae_por_ano"]).T
+        teste = teste.join(por_ano.add_prefix("Erro em "))
+        teste = teste.rename(
+            columns={"mae": "Erro médio (kg/ha)", "rmse": "RMSE", "ganho_sobre_regua": "Ganho sobre a régua"}
+        )
+        st.dataframe(
+            teste.astype(float).round(0).sort_values("Erro médio (kg/ha)"),
+            width="stretch",
+            column_config={"Ganho sobre a régua": st.column_config.NumberColumn(format="%+.0f")},
+        )
+        st.caption(
+            f"Modelos treinados até 2022, avaliados uma única vez com regras registradas "
+            f"antes. Régua: {avaliacao['regua']}. Em 2024, a seca do El Niño derrubou a "
+            "safra e todos os palpites erraram muito; o clima puxou a previsão para baixo "
+            "e errou menos que a régua. A média simples das 3 safras, sem correção da "
+            "tendência, teve o menor erro médio no teste."
         )
 
     st.subheader("O que pesa na previsão")
@@ -329,8 +351,8 @@ with aba_modelos:
     )
     st.plotly_chart(figura_pesos, width="stretch")
     st.caption(
-        f"Modelo do painel: {previsao.MODELO_PAINEL}, provisório até a escolha do modelo "
-        "final. Cada barra é quanto a previsão muda quando a variável sobe uma variação "
+        f"Modelo do painel: {previsao.MODELO_PAINEL}, com o clima de dezembro a fevereiro. "
+        "Cada barra é quanto a previsão muda quando a variável sobe uma variação "
         "típica (um desvio-padrão), com as outras paradas. Calor e radiação na floração "
         "puxam o rendimento para baixo, mas o efeito é pequeno perto do erro médio."
     )

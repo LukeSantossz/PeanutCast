@@ -1,12 +1,14 @@
 """A previsão que o painel mostra: modelo, cenários, faixa e fatores.
 
-O modelo do painel é provisório até a equipe congelar o modelo final (prazo
-16/10). Trocar é mudar MODELO_PAINEL; o resto da tela não depende da escolha.
+O modelo do painel é a Huber com o clima da fase crítica, o principal da
+avaliação final (scripts/avaliar_teste.py). O teste de 2023 a 2025 já foi
+aberto, em 24/09, e por isso o painel treina com todas as safras: não há mais
+nada a proteger, e a previsão de 2026 ganha os três anos mais recentes.
 
-O modelo é treinado só com as safras de desenvolvimento (até 2022). O teste de
-2023 a 2025 continua fechado: treinar com ele antes de avaliá-lo estragaria a
-única medida honesta que o projeto vai ter. Depois da avaliação, o modelo do
-painel pode passar a usar todas as safras.
+A faixa é o erro médio de um walk-forward de 2012 até a última safra, cada ano
+previsto por um modelo treinado só com os anteriores. Ela inclui 2024, o ano da
+quebra, e por isso é mais larga que o erro da validação sozinha (647 contra 579
+kg/ha em 24/09).
 
 Cenários, como em D2: o painel não prevê o clima. Os anos do município são
 ordenados pela chuva de dezembro a fevereiro e divididos em terços; cada
@@ -36,16 +38,19 @@ def _fabrica():
 
 
 def treinar(tabela):
-    """Modelo do painel, ajustado nas safras de desenvolvimento."""
-    desenvolvimento, _ = validacao.separar_teste(tabela)
-    return modelos.treinar(_fabrica(), desenvolvimento, desvio=True, colunas=COLUNAS)
+    """Modelo do painel, ajustado em todas as safras."""
+    return modelos.treinar(_fabrica(), tabela, desvio=True, colunas=COLUNAS)
 
 
 def erro_medio(tabela):
-    """MAE do modelo do painel no walk-forward da validação: a largura da faixa."""
-    desenvolvimento, _ = validacao.separar_teste(tabela)
+    """MAE do walk-forward de 2012 até a última safra: a largura da faixa."""
     previsor = modelos.como_previsor(_fabrica(), desvio=True, colunas=COLUNAS)
-    return validacao.metricas(validacao.walk_forward(desenvolvimento, previsor))["mae"]
+    erros = []
+    for ano in range(min(validacao.ANOS_VALIDACAO), int(tabela["ano"].max()) + 1):
+        treino, alvo = tabela[tabela["ano"] < ano], tabela[tabela["ano"] == ano]
+        if len(alvo):
+            erros.append((alvo[atributos.ALVO] - previsor(treino, alvo)).abs())
+    return float(pd.concat(erros).mean())
 
 
 def cenarios(clima_municipio):

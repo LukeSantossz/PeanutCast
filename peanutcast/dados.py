@@ -17,6 +17,7 @@ from . import atributos, previsao
 from .caminhos import CLIMA_SAFRAS, DATASET, MALHAS, MODELOS
 
 COMPARACAO = MODELOS / "comparacao.json"
+TESTE = MODELOS / "teste.json"
 
 
 def _modificado_em(arquivo):
@@ -57,6 +58,13 @@ def carregar_comparacao():
     if not COMPARACAO.exists():
         return None
     return _ler_json(COMPARACAO, _modificado_em(COMPARACAO))
+
+
+def carregar_teste():
+    """Resultado do scripts/avaliar_teste.py, ou None se o teste não foi aberto."""
+    if not TESTE.exists():
+        return None
+    return _ler_json(TESTE, _modificado_em(TESTE))
 
 
 @st.cache_resource

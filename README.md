@@ -100,9 +100,14 @@ a março do ano da colheita, que é a janela da safra das águas.
 
 Comparação entre modelos, das Semanas 6 e 7: `python scripts/comparar.py` roda as três
 baselines e os modelos no walk-forward, em cerca de 40 segundos, e grava o resultado em
-`modelos/comparacao.json`. O melhor modelo com clima (regressão linear robusta, clima de dezembro
-a fevereiro) fica 4 kg/ha à frente da baseline mais forte sem clima, dentro do ruído. O
-teste de 2023 a 2025 ainda não foi aberto.
+`modelos/comparacao.json`. Na validação, o melhor modelo com clima (regressão linear robusta,
+clima de dezembro a fevereiro) ficou 4 kg/ha à frente da baseline mais forte sem clima,
+dentro do ruído.
+
+Avaliação final: `python scripts/avaliar_teste.py --abrir-teste`, com as regras no topo
+do arquivo, registradas antes de o teste ser aberto em 24/09. No teste de 2023 a 2025 o
+modelo com clima errou 842 kg/ha contra 908 da régua, e quase todo o ganho veio de 2024,
+o ano da quebra.
 
 Tabela modelável e protocolo de validação, da Semana 5: `peanutcast/atributos.py` monta
 o X e o y sem olhar para o futuro, e `peanutcast/validacao.py` separa treino, validação e
@@ -117,9 +122,8 @@ O painel tem três abas, adiantadas da Semana 8:
   cenário, com os favoritos marcados.
 - **Modelos**: a tabela da validação e o peso de cada variável de clima na previsão.
 
-O modelo da previsão é provisório até a equipe escolher o modelo final; trocar é mudar
-uma linha em `peanutcast/previsao.py`. Ele é treinado só até 2022, para não tocar no
-teste.
+A previsão usa o modelo principal da avaliação final, treinado com todas as safras. A
+faixa de erro (± 647 kg/ha) é o erro médio ano a ano de 2012 a 2025.
 
 A sessão dura enquanto a aba fica aberta. Recarregar a página pede login de novo, e
 isso é de propósito: está explicado em `credenciais.exemplo.yaml`.
@@ -144,6 +148,7 @@ scripts/
   integrar.py              junta produção e clima em dados/tratados/dataset.csv
   analisar_dados.py        os números por trás das decisões de atributos e validação
   comparar.py              baselines e modelos no walk-forward, grava em modelos/
+  avaliar_teste.py         avaliação final no teste de 2023 a 2025, com as regras registradas
 tests/                     python -m pytest
 docs/dados.md              fontes, regras de tratamento e dicionário de colunas
 requirements.txt           versões travadas, iguais para os quatro
