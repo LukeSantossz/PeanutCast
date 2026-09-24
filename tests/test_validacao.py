@@ -41,3 +41,24 @@ def test_walk_forward_entrega_o_treino_da_dobra():
     assert set(previsoes["ano"]) == set(validacao.ANOS_VALIDACAO)
     # Repetir o ano anterior numa série que sobe 1 por ano erra exatamente 1.
     assert validacao.metricas(previsoes)["mae"] == 1
+
+
+def test_formulacao_de_desvio_devolve_kg_ha():
+    """Modelo que prevê desvio zero tem que devolver a própria média recente."""
+    from sklearn.dummy import DummyRegressor
+
+    from peanutcast import atributos, modelos
+
+    dados = pd.DataFrame(
+        {
+            "codigo_ibge": 1,
+            "ano": range(2000, 2008),
+            "area_colhida_ha": 1000,
+            "rendimento_kg_ha": [1000.0, 2000, 3000, 2000, 1000, 2000, 3000, 2000],
+            **{c: 1.0 for c in atributos.CLIMA},
+        }
+    )
+    tabela = atributos.montar(dados)
+    zero = lambda: DummyRegressor(strategy="constant", constant=0.0)  # noqa: E731
+    previsto = modelos.como_previsor(zero, desvio=True)(tabela, tabela)
+    assert list(previsto) == list(tabela["rend_medio_munic"])

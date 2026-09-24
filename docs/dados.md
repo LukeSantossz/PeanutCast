@@ -25,26 +25,26 @@ que fique velha.
 | IBGE, API de malhas v3 | centroide de cada município | `centroides.csv` |
 | NASA POWER, API diária, comunidade AG | clima diário no centroide, de 01/09/1999 a 31/12/2025 | `nasa_power/<codigo>.csv` |
 
-A chave de tudo é o **código IBGE de 7 dígitos**, nunca o nome.
+As tabelas se juntam pelo código IBGE de 7 dígitos, nunca pelo nome.
 
 ## Da coleta ao dataset (`integrar.py`)
 
-**Símbolos do SIDRA.** `-` é zero absoluto e `...` é não disponível (só Vera Cruz 2009).
-Nos dois casos não há rendimento para prever e a linha sai. Não é dado faltante a
-preencher: é ano sem amendoim ou sem levantamento.
+No SIDRA, `-` quer dizer zero absoluto e `...` quer dizer não disponível (só aparece em
+Vera Cruz, 2009). Nos dois casos não há rendimento para prever e a linha sai. São anos
+sem amendoim ou sem levantamento, e por isso não se imputa nada.
 
-**Consistência.** A integração para se o rendimento diferir de produção ÷ área colhida
-por mais de 1 kg/ha, se a área colhida passar da plantada ou se sobrar linha de produção
-sem clima. Hoje nenhuma das três acontece.
+A integração para com erro se o rendimento diferir de produção ÷ área colhida por mais
+de 1 kg/ha, se a área colhida passar da plantada ou se sobrar linha de produção sem
+clima. Hoje nenhum dos três casos acontece.
 
-**Janela da safra.** O clima do ano *N* é o de **1º de setembro de N-1 a 31 de março de
-N**: a safra das águas, plantada de setembro a novembro e colhida de janeiro a março, que
-a PAM registra no ano da colheita. A safra da seca, plantada em fevereiro, também entra
-no número do IBGE e fica fora da janela. Ela é menor em SP e vai como limitação.
+O clima do ano *N* é o de 1º de setembro de *N*-1 a 31 de março de *N*. Essa é a safra
+das águas, plantada de setembro a novembro e colhida de janeiro a março, que a PAM
+registra no ano da colheita. A safra da seca, plantada em fevereiro, também entra no
+número do IBGE mas fica fora da janela. Em SP ela é a menor das duas, e entra como
+limitação.
 
-**Resolução do clima.** A NASA POWER tem células de cerca de 50 km. Consultada nos 24
-centroides, ela devolve **só 6 séries distintas**: municípios vizinhos recebem exatamente
-o mesmo clima.
+A NASA POWER tem células de cerca de 50 km. Consultada nos 24 centroides, ela devolve só
+6 séries distintas, e municípios vizinhos recebem exatamente o mesmo clima:
 
 | Série | Municípios |
 |---|---|
@@ -55,9 +55,9 @@ o mesmo clima.
 | 5 | Mariápolis, Sagres |
 | 6 | Rinópolis, Salmourão |
 
-O clima explica a variação de um ano para outro, e quase nada da diferença entre
-vizinhos no mesmo ano, que fica com `rend_medio_munic`. Não é erro de coleta, é a
-resolução da fonte, e vai como limitação.
+Com isso o clima explica a variação de um ano para outro, e quase nada da diferença entre
+vizinhos no mesmo ano, que fica por conta de `rend_medio_munic`. A coleta está certa; o
+limite é a resolução da fonte, e ele entra nas limitações do relatório.
 
 ## Da tabela integrada à modelável (`atributos.py`)
 
@@ -67,9 +67,9 @@ resolução da fonte, e vai como limitação.
 | Safras anteriores mínimas | 3 | Com menos que isso a "média do município" é o ano passado com outro nome |
 | Janela de `rend_medio_munic` | 3 safras | Ver abaixo |
 
-**Por que 3 safras e não todas.** O rendimento da região sobe cerca de 80 kg/ha por ano
-de 2000 a 2025. A média de todas as safras anteriores fica para trás da tendência. No
-walk-forward da validação:
+A janela é de 3 safras, e não de todas, porque o rendimento da região sobe cerca de 80
+kg/ha por ano de 2000 a 2025 e a média de todas as safras anteriores fica para trás da
+tendência. No walk-forward da validação:
 
 | Palpite | MAE (kg/ha) | RMSE | R² |
 |---|---:|---:|---:|
@@ -78,10 +78,10 @@ walk-forward da validação:
 | Safra anterior (persistência) | 595 | 915 | 0,20 |
 
 Com a média longa como baseline, o modelo pareceria ganhar uns 500 kg/ha só por
-acompanhar a tendência, e esse ganho seria contado como clima. O risco é concreto: a
-temperatura máxima e os dias de calor têm correlação de 0,5 com o ano. Entre as janelas
-de 3 a 10 safras, a de 3 tem o melhor MAE, RMSE e R². A escolha olhou só os anos de
-validação.
+acompanhar a tendência, e esse ganho seria contado como clima. Isso pode acontecer de
+verdade, porque a temperatura máxima e os dias de calor têm correlação de 0,5 com o ano.
+Entre as janelas de 3 a 10 safras, a de 3 tem o melhor MAE, RMSE e R², e a escolha usou
+só os anos de validação.
 
 ## Validação (`validacao.py`)
 
@@ -89,7 +89,7 @@ validação.
 |---|---|---:|
 | Treino | anos anteriores ao ano validado; a primeira dobra treina de 2003 a 2011 | 127 a 303 |
 | Validação | 2012 a 2022, um ano por dobra | 197 no total |
-| Teste | 2023 a 2025, olhado uma vez, no fim da Semana 7 | 67 |
+| Teste | 2023 a 2025, aberto uma vez, no fim da Semana 7, depois de o modelo ser escolhido | 67 |
 
 Os atributos das linhas de teste usam rendimentos de anos anteriores, inclusive de
 outros anos do teste (a linha de 2025 usa 2023 e 2024). Isso não é vazamento: são
