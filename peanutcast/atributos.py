@@ -46,6 +46,17 @@ CLIMA = [
 ]
 ATRIBUTOS = ESTRUTURA + CLIMA
 
+# Clima de dezembro a fevereiro, floração e enchimento da vagem. Na validação
+# tem mais sinal que a média da safra inteira: radiação, calor e dias acima de
+# 35 °C nessa fase têm correlação de -0,2 com o desvio da safra, contra -0,1 a
+# -0,18 das médias de sete meses. Colunas criadas pelo integrar.py.
+CLIMA_CRITICO = [
+    "chuva_critica_mm",
+    "temp_max_critica_c",
+    "radiacao_critica_mj_m2",
+    "dias_calor_critica",
+]
+
 
 def montar(dataset):
     """Tabela modelável a partir de dados/tratados/dataset.csv.

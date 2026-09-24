@@ -62,3 +62,13 @@ def test_formulacao_de_desvio_devolve_kg_ha():
     zero = lambda: DummyRegressor(strategy="constant", constant=0.0)  # noqa: E731
     previsto = modelos.como_previsor(zero, desvio=True)(tabela, tabela)
     assert list(previsto) == list(tabela["rend_medio_munic"])
+
+
+def test_media_corrigida_soma_so_o_desvio_do_treino():
+    """A baseline corrigida usa o desvio médio do treino, nunca o da validação."""
+    from peanutcast import modelos
+
+    treino = pd.DataFrame({"rendimento_kg_ha": [1100.0, 1300.0], "rend_medio_munic": [1000.0, 1000.0]})
+    val = pd.DataFrame({"rendimento_kg_ha": [9999.0], "rend_medio_munic": [2000.0]})
+    previsto = modelos.BASELINES["Média corrigida pela tendência"](treino, val)
+    assert list(previsto) == [2200.0]

@@ -22,11 +22,16 @@ import pandas as pd  # noqa: E402
 
 from peanutcast import atributos, caminhos, modelos, validacao  # noqa: E402
 
-BASELINE_PRINCIPAL = "Média das 3 últimas safras"
+# O ganho do clima é medido contra a média corrigida pela tendência, que é o
+# modelo de desvio sem o clima. Ver modelos._media_corrigida.
+BASELINE_PRINCIPAL = "Média corrigida pela tendência"
 
 
 def parametros(nome):
-    fabrica = modelos.FABRICAS.get(nome.split(" (")[0])
+    if nome.endswith("(desvio, fase crítica)"):
+        fabrica = modelos.AJUSTADOS[nome.rsplit(" (", 1)[0]]
+    else:
+        fabrica = modelos.FABRICAS.get(nome.split(" (")[0])
     if fabrica is None:
         return None
     modelo = fabrica()

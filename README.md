@@ -98,10 +98,11 @@ Coleta e integração, das Semanas 2 a 4: 24 municípios, safras de 2000 a 2025,
 linhas com rendimento publicado. O clima de cada safra é o de setembro do ano anterior
 a março do ano da colheita, que é a janela da safra das águas.
 
-Primeira comparação entre modelos, da Semana 6: `python scripts/comparar.py` roda as
-duas baselines e os três modelos no walk-forward e grava o resultado em `modelos/`. Com
-os parâmetros de partida nenhum modelo supera a baseline ainda. Os números estão no
-arquivo `modelos/comparacao.json` depois de rodar.
+Comparação entre modelos, das Semanas 6 e 7: `python scripts/comparar.py` roda as três
+baselines e os modelos no walk-forward, em cerca de 40 segundos, e grava o resultado em
+`modelos/comparacao.json`. O melhor modelo com clima (Regressão Linear com Ridge, clima de
+dezembro a fevereiro) fica 3 kg/ha à frente da baseline sem clima, dentro do ruído. O
+teste de 2023 a 2025 ainda não foi aberto.
 
 Tabela modelável e protocolo de validação, da Semana 5: `peanutcast/atributos.py` monta
 o X e o y sem olhar para o futuro, e `peanutcast/validacao.py` separa treino, validação e

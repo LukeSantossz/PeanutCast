@@ -30,6 +30,9 @@ MES_FIM_SAFRA = 3       # março do ano da colheita
 # extremo térmico que D1 pede, contado em dias da safra.
 LIMIAR_CALOR_C = 35
 
+MESES_PLANTIO = (9, 10, 11)     # semeadura e emergência
+MESES_CRITICOS = (12, 1, 2)     # floração e enchimento da vagem
+
 
 def ler_producao():
     """PAM em formato largo, com os símbolos do SIDRA resolvidos.
@@ -84,6 +87,17 @@ def clima_por_safra(codigo):
         vento_m_s=("vento_m_s", "mean"),
         dias_calor=("dias_calor", "sum"),
     )
+    # A média de sete meses dilui o que importa. O amendoim precisa de chuva
+    # para emergir no plantio e sofre com seca e calor na floração e no
+    # enchimento da vagem, que na safra das águas caem de dezembro a fevereiro.
+    plantio = diario[diario["data"].dt.month.isin(MESES_PLANTIO)].groupby("ano")
+    critica = diario[diario["data"].dt.month.isin(MESES_CRITICOS)].groupby("ano")
+    safra["chuva_plantio_mm"] = plantio["chuva_mm"].sum()
+    safra["chuva_critica_mm"] = critica["chuva_mm"].sum()
+    safra["temp_max_critica_c"] = critica["temp_max_c"].mean()
+    safra["radiacao_critica_mj_m2"] = critica["radiacao_mj_m2"].mean()
+    safra["dias_calor_critica"] = critica["dias_calor"].sum()
+
     # Safra incompleta nas pontas da série (a primeira começa em set/1999, mas
     # a de 1999 começaria em set/1998) não entra: chuva somada em meia safra
     # pareceria seca.

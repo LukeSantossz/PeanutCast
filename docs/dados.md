@@ -114,6 +114,11 @@ mãos. O modelo, esse sim, é treinado só até 2022.
 | `radiacao_mj_m2` | MJ/m²/dia | média na safra, `ALLSKY_SFC_SW_DWN` |
 | `vento_m_s` | m/s | média na safra, `WS2M`, a 2 m |
 | `dias_calor` | dias | dias da safra com máxima acima de 35 °C, quando a florada e a formação da vagem sofrem |
+| `chuva_plantio_mm` | mm | soma de setembro a novembro, semeadura e emergência |
+| `chuva_critica_mm` | mm | soma de dezembro a fevereiro, floração e enchimento da vagem |
+| `temp_max_critica_c` | °C | média da máxima diária de dezembro a fevereiro |
+| `radiacao_critica_mj_m2` | MJ/m²/dia | média de dezembro a fevereiro |
+| `dias_calor_critica` | dias | dias acima de 35 °C entre dezembro e fevereiro |
 
 ### Acrescentadas por `atributos.montar`
 
@@ -123,4 +128,6 @@ mãos. O modelo, esse sim, é treinado só até 2022.
 | `rend_safra_anterior` | rendimento da última safra publicada. Baseline de persistência (D3); não entra no X |
 | `safras_anteriores` | quantas safras o município tem antes desta. Serve só ao filtro |
 
-O X de D1 é `atributos.ATRIBUTOS`: `rend_medio_munic` mais as oito colunas de clima.
+O X de D1 é `atributos.ATRIBUTOS`: `rend_medio_munic` mais as oito colunas de clima da
+safra inteira. Os modelos ajustados na Semana 7 usam `atributos.CLIMA_CRITICO`, as quatro
+colunas de dezembro a fevereiro, e preveem o desvio em relação a `rend_medio_munic`.
