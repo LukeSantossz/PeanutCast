@@ -61,6 +61,16 @@ def coletar_centroides(forcar):
     return centroides
 
 
+def coletar_malhas(forcar):
+    if caminhos.MALHAS.exists() and not forcar:
+        print(f"Malhas: já existem, pulando ({caminhos.MALHAS.name})")
+        return
+    print("Malhas: baixando o contorno dos municípios...")
+    colecao = {"type": "FeatureCollection", "features": [fontes.baixar_malha(c) for c in MUNICIPIOS]}
+    caminhos.MALHAS.write_text(json.dumps(colecao), encoding="utf-8")
+    registrar_origem(caminhos.MALHAS, "IBGE, API de malhas v3 (GeoJSON, qualidade intermediária)")
+
+
 def coletar_clima(centroides, forcar):
     for linha in centroides.itertuples():
         nome = MUNICIPIOS[linha.codigo_ibge]
@@ -85,6 +95,7 @@ def main():
     caminhos.garantir_pastas()
     coletar_pam(args.forcar)
     centroides = coletar_centroides(args.forcar)
+    coletar_malhas(args.forcar)
     coletar_clima(centroides, args.forcar)
     print("Coleta concluída.")
 

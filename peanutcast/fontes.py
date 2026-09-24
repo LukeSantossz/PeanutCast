@@ -7,7 +7,7 @@ erro de tratamento se corrige rodando a integração de novo, sem baixar nada.
 
 Fontes:
   IBGE/SIDRA, tabela 1612 (PAM)   produção de amendoim por município e ano
-  IBGE, API de malhas             centroide de cada município
+  IBGE, API de malhas             centroide e contorno de cada município
   NASA POWER, API diária          clima diário no centroide
 """
 import time
@@ -95,6 +95,21 @@ def baixar_centroide(codigo):
     )
     centroide = dados[0]["centroide"]
     return centroide["latitude"], centroide["longitude"]
+
+
+def baixar_malha(codigo):
+    """Contorno do município em GeoJSON, com o código IBGE como id da feição.
+
+    Qualidade intermediária: o mapa é regional, e o contorno detalhado só
+    deixaria o arquivo mais pesado sem mudar nada na tela.
+    """
+    dados = _get_json(
+        f"https://servicodados.ibge.gov.br/api/v3/malhas/municipios/{codigo}",
+        params={"formato": "application/vnd.geo+json", "qualidade": "intermediaria"},
+    )
+    feicao = dados["features"][0]
+    feicao["id"] = int(feicao["properties"]["codarea"])
+    return feicao
 
 
 def baixar_clima_diario(latitude, longitude):

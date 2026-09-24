@@ -9,9 +9,14 @@ vale o script.
 ```
 coletar.py        ->  dados/brutos/          como as APIs entregam, com .origem.json
 integrar.py       ->  dados/tratados/dataset.csv       518 linhas, 2000 a 2025
+                  ->  dados/tratados/clima_safras.csv  624 linhas, clima de toda safra
 atributos.montar  ->  tabela modelável (em memória)    391 linhas
 validacao         ->  324 de desenvolvimento + 67 de teste reservado
 ```
+
+O `clima_safras.csv` tem o clima de todas as 26 safras dos 24 municípios, inclusive
+dos anos sem amendoim. É dele que o painel tira os cenários: um município com 5 safras
+de amendoim tem 26 de clima.
 
 A tabela modelável não é gravada em disco de propósito. Ela é sempre recalculada a
 partir do `dataset.csv` pela mesma função que o treino usa, para não existir uma cópia
@@ -24,6 +29,7 @@ que fique velha.
 | IBGE/SIDRA, tabela 1612 (PAM), produto 2691 "Amendoim (em casca)" | área plantada, área colhida, produção e rendimento por município e ano | `ibge_pam.csv` |
 | IBGE, API de malhas v3 | centroide de cada município | `centroides.csv` |
 | NASA POWER, API diária, comunidade AG | clima diário no centroide, de 01/09/1999 a 31/12/2025 | `nasa_power/<codigo>.csv` |
+| IBGE, API de malhas v3 (GeoJSON) | contorno de cada município, para o mapa | `municipios.geojson` |
 
 As tabelas se juntam pelo código IBGE de 7 dígitos, nunca pelo nome.
 

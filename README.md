@@ -71,7 +71,7 @@ agregado não prevê produtividade de amendoim, e isso também é resultado.
 ```bash
 python -m pip install -r requirements.txt
 cp credenciais.exemplo.yaml credenciais.yaml   # depois troque a chave do cookie
-python scripts/coletar.py                      # baixa IBGE e NASA POWER, uns 2 minutos
+python scripts/coletar.py                      # baixa IBGE, NASA POWER e o contorno dos municípios
 python scripts/integrar.py                     # monta dados/tratados/dataset.csv
 python scripts/analisar_dados.py               # opcional: os números das decisões
 streamlit run app.py
@@ -108,9 +108,18 @@ Tabela modelável e protocolo de validação, da Semana 5: `peanutcast/atributos
 o X e o y sem olhar para o futuro, e `peanutcast/validacao.py` separa treino, validação e
 teste. Os testes rodam com `python -m pytest`.
 
-Na tela, o histórico de rendimento do município escolhido. No lugar da previsão, que
-chega na Semana 8, aparece a média das últimas três safras: é a baseline que o modelo
-precisa superar, então o número já é o de verdade, só não é previsão.
+O painel tem três abas, adiantadas da Semana 8:
+
+- **Município**: histórico de rendimento, clima de dezembro a fevereiro de cada safra e a
+  previsão da próxima safra, com seletor de cenário (seco, normal, chuvoso), controles
+  para ajustar o clima e a faixa de erro.
+- **Comparar municípios**: mapa regional e tabela com os 24 municípios sob o mesmo
+  cenário, com os favoritos marcados.
+- **Modelos**: a tabela da validação e o peso de cada variável de clima na previsão.
+
+O modelo da previsão é provisório até a equipe escolher o modelo final; trocar é mudar
+uma linha em `peanutcast/previsao.py`. Ele é treinado só até 2022, para não tocar no
+teste.
 
 A sessão dura enquanto a aba fica aberta. Recarregar a página pede login de novo, e
 isso é de propósito: está explicado em `credenciais.exemplo.yaml`.
@@ -125,7 +134,8 @@ peanutcast/
   caminhos.py              onde ficam dados, modelos e credenciais
   municipios.py            lista de municípios atendidos
   fontes.py                acesso às APIs do SIDRA, de malhas do IBGE e da NASA POWER
-  dados.py                 leitura do dataset integrado pelo app
+  dados.py                 leitura, pelo app, do que os scripts gravaram
+  previsao.py              modelo do painel, cenários, faixa de erro e pesos do clima
   atributos.py             tabela modelável: o X e o y, sem olhar para o futuro
   validacao.py             walk-forward, teste reservado e métricas
   modelos.py               as duas baselines e os três modelos, nas duas formulações

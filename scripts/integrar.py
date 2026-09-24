@@ -110,6 +110,10 @@ def main():
     conferir_producao(producao)
 
     clima = pd.concat(clima_por_safra(codigo) for codigo in MUNICIPIOS)
+    # O clima de todas as safras vai para um arquivo à parte: os cenários do
+    # painel saem dele, e um município com 5 safras de amendoim tem 26 de clima.
+    caminhos.DADOS_TRATADOS.mkdir(parents=True, exist_ok=True)
+    clima.round(2).to_csv(caminhos.CLIMA_SAFRAS, index=False)
     dataset = producao.merge(clima, on=["codigo_ibge", "ano"], how="left", validate="one_to_one")
 
     sem_clima = dataset["chuva_mm"].isna()
@@ -118,7 +122,6 @@ def main():
 
     dataset.insert(1, "municipio", dataset["codigo_ibge"].map(MUNICIPIOS))
     dataset = dataset.sort_values(["municipio", "ano"]).round(2)
-    caminhos.DADOS_TRATADOS.mkdir(parents=True, exist_ok=True)
     dataset.to_csv(caminhos.DATASET, index=False)
 
     print(
