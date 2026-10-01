@@ -62,11 +62,12 @@ def criar_autenticador():
     )
 
 
-def tela_de_entrada(autenticador):
+def tela_de_entrada(autenticador, capa=None):
     """Desenha login e cadastro. Devolve o usuário logado, ou None.
 
     Enquanto ninguém está logado, esta função ocupa a tela inteira. Quem chama
-    deve parar a execução quando o retorno for None.
+    deve parar a execução quando o retorno for None. `capa`, se vier, desenha
+    a coluna da direita: no app, o mapa da região.
     """
     # Primeiro tenta reaproveitar o cookie, sem desenhar nada na tela. É o que
     # o modo "unrendered" faz. Sem esta chamada, o formulário de login seria
@@ -76,9 +77,31 @@ def tela_de_entrada(autenticador):
     if st.session_state.get("authentication_status"):
         return st.session_state["username"]
 
-    st.title("PeanutCast")
-    st.caption("Previsão de produtividade do amendoim na Alta Paulista")
+    formulario, direita = st.columns([1, 1.5], gap="large")
+    if capa is not None:
+        with direita:
+            capa()
 
+    with formulario:
+        st.html(
+            '<div class="pc-marca">Peanut<i>Cast</i></div>'
+            '<div class="pc-titulo">Onde plantar não devia ser palpite.</div>'
+            '<p class="pc-tag">Rendimento esperado do amendoim, município a município, '
+            "antes do plantio.</p>"
+        )
+        _formularios(autenticador)
+
+    # Se a senha acabou de ser aceita, recarrega em vez de devolver o usuário.
+    # O formulário já foi desenhado acima neste mesmo ciclo, então devolver
+    # aqui deixaria a página com a tela de login em cima e a tela de quem está
+    # logado embaixo. No ciclo seguinte o login "unrendered" lá em cima
+    # reconhece a sessão e nada disso é desenhado.
+    if st.session_state.get("authentication_status"):
+        st.rerun()
+    return None
+
+
+def _formularios(autenticador):
     aba_entrar, aba_cadastrar = st.tabs(["Entrar", "Criar conta"])
 
     with aba_entrar:
@@ -101,31 +124,26 @@ def tela_de_entrada(autenticador):
             # inválido por exceção. Mostrar a mensagem é melhor que engolir.
             st.error(str(erro))
 
-    # Se a senha acabou de ser aceita, recarrega em vez de devolver o usuário.
-    # O formulário já foi desenhado acima neste mesmo ciclo, então devolver
-    # aqui deixaria a página com a tela de login em cima e a tela de quem está
-    # logado embaixo. No ciclo seguinte o login "unrendered" lá em cima
-    # reconhece a sessão e nada disso é desenhado.
-    if st.session_state.get("authentication_status"):
-        st.rerun()
-    return None
+
+def nome_de_quem_entrou():
+    return st.session_state.get("name") or st.session_state.get("username") or ""
 
 
-def barra_lateral_do_usuario(autenticador):
-    """Nome de quem está logado e o botão de sair, na barra lateral."""
-    st.sidebar.write(f"**{st.session_state['name']}**")
-    autenticador.logout("Sair", "sidebar")
+def sair(autenticador):
+    """Encerra a sessão. O botão Sair fica no painel, que chama esta função.
 
-    # A biblioteca zera authentication_status no clique, mas não recarrega a
-    # página, então o resto do script continuaria desenhando a tela de quem
-    # está logado. O rerun faz o Sair valer no mesmo clique.
-    #
-    # Isso só é seguro porque expiry_days está em 0 e não existe cookie a
-    # apagar. Com cookie, o rerun cortaria o componente que manda a instrução
-    # de remoção para o navegador, e o usuário sairia sem sair de verdade.
-    #
-    # No terminal aparece "peanutcast_sessao" a cada logout. É a biblioteca
-    # tentando apagar um cookie que nunca foi criado e imprimindo o erro em
-    # vez de ignorá-lo. Não quebra nada.
-    if not st.session_state.get("authentication_status"):
-        st.rerun()
+    O modo "unrendered" da biblioteca faz o logout sem desenhar botão. Ela
+    zera authentication_status mas não recarrega a página, então o resto do
+    script continuaria desenhando a tela de quem está logado. O rerun faz o
+    Sair valer no mesmo clique.
+
+    Isso só é seguro porque expiry_days está em 0 e não existe cookie a
+    apagar. Com cookie, o rerun cortaria o componente que manda a instrução
+    de remoção para o navegador, e o usuário sairia sem sair de verdade.
+
+    No terminal aparece "peanutcast_sessao" a cada logout. É a biblioteca
+    tentando apagar um cookie que nunca foi criado e imprimindo o erro em vez
+    de ignorá-lo. Não quebra nada.
+    """
+    autenticador.logout(location="unrendered")
+    st.rerun()
