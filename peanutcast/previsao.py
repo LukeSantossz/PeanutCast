@@ -42,15 +42,36 @@ def treinar(tabela):
     return modelos.treinar(_fabrica(), tabela, desvio=True, colunas=COLUNAS)
 
 
-def erro_medio(tabela):
-    """MAE do walk-forward de 2012 até a última safra: a largura da faixa."""
+def previsto_por_safra(tabela):
+    """Walk-forward de 2012 até a última safra, linha a linha.
+
+    Cada safra é prevista por um modelo treinado só com as anteriores. Devolve
+    codigo_ibge, ano, real e previsto: é o que o painel mostra como "o que o
+    modelo teria previsto sem ver a safra", e a média do erro é a faixa.
+    """
     previsor = modelos.como_previsor(_fabrica(), desvio=True, colunas=COLUNAS)
-    erros = []
+    partes = []
     for ano in range(min(validacao.ANOS_VALIDACAO), int(tabela["ano"].max()) + 1):
         treino, alvo = tabela[tabela["ano"] < ano], tabela[tabela["ano"] == ano]
         if len(alvo):
-            erros.append((alvo[atributos.ALVO] - previsor(treino, alvo)).abs())
-    return float(pd.concat(erros).mean())
+            partes.append(
+                pd.DataFrame(
+                    {
+                        "codigo_ibge": alvo["codigo_ibge"].to_numpy(),
+                        "ano": ano,
+                        "real": alvo[atributos.ALVO].to_numpy(),
+                        "previsto": previsor(treino, alvo),
+                    }
+                )
+            )
+    return pd.concat(partes, ignore_index=True)
+
+
+def erro_medio(tabela, por_safra=None):
+    """MAE do walk-forward de 2012 até a última safra: a largura da faixa."""
+    if por_safra is None:
+        por_safra = previsto_por_safra(tabela)
+    return float((por_safra["real"] - por_safra["previsto"]).abs().mean())
 
 
 def cenarios(clima_municipio):
@@ -74,6 +95,40 @@ def prever(modelo, media_recente, clima):
     """
     x = pd.DataFrame([clima])[COLUNAS]
     return media_recente + float(modelo.predict(x)[0])
+
+
+def parametros(modelo):
+    """O modelo linear do painel aberto em números: média e desvio de cada
+    variável (do StandardScaler), coeficientes e intercepto.
+
+    Com eles a previsão é média recente + intercepto + Σ coef · (x − μ) / σ, a
+    mesma conta de prever(). É o que deixa o navegador refazer a previsão
+    enquanto o usuário arrasta um controle, sem esperar o servidor. Só vale
+    para modelo linear: com árvore não há coeficiente, e esta função falha.
+    """
+    escala, linear = modelo[0], modelo[-1]
+    return {
+        "media": escala.mean_.tolist(),
+        "desvio": escala.scale_.tolist(),
+        "coef": linear.coef_.tolist(),
+        "intercepto": float(linear.intercept_),
+    }
+
+
+def decompor(modelo, media_recente, clima):
+    """A previsão em partes que somam o total, em kg/ha.
+
+    média das safras recentes + tendência (o intercepto: quanto a safra fica
+    acima da média recente com o clima médio do treino) + a contribuição de
+    cada variável de clima, medida contra o clima médio do treino. Num modelo
+    linear isso é exato, e é o mesmo que o SHAP daria.
+    """
+    p = parametros(modelo)
+    contribuicoes = {
+        coluna: coef * (float(clima[coluna]) - media) / desvio
+        for coluna, coef, media, desvio in zip(COLUNAS, p["coef"], p["media"], p["desvio"])
+    }
+    return {"media": float(media_recente), "tendencia": p["intercepto"], "clima": contribuicoes}
 
 
 def fatores(modelo):

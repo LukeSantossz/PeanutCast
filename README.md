@@ -113,17 +113,36 @@ Tabela modelável e protocolo de validação, da Semana 5: `peanutcast/atributos
 o X e o y sem olhar para o futuro, e `peanutcast/validacao.py` separa treino, validação e
 teste. Os testes rodam com `python -m pytest`.
 
-O painel tem três abas, adiantadas da Semana 8:
+O painel, adiantado da Semana 8, é um espaço de trabalho em volta do mapa, no jeito das
+plataformas de previsão (Windy, Ventusky, meteoblue):
 
-- **Município**: histórico de rendimento, clima de dezembro a fevereiro de cada safra e a
-  previsão da próxima safra, com seletor de cenário (seco, normal, chuvoso), controles
-  para ajustar o clima e a faixa de erro.
-- **Comparar municípios**: mapa regional e tabela com os 24 municípios sob o mesmo
-  cenário, com os favoritos marcados.
-- **Modelos**: a tabela da validação e o peso de cada variável de clima na previsão.
+- **Mapa**: os 24 municípios pintados pelo rendimento esperado, ou pela perda no ano
+  seco, com o ranking ao lado. Passar o mouse mostra quem divide a mesma célula de clima
+  da NASA POWER.
+- **Barra de cenário**, embaixo: seco, normal ou chuvoso. Vale para a tela inteira, e as
+  teclas 1, 2 e 3 trocam o cenário.
+- **Ficha do município**, ao clicar: a previsão com piso e teto, os três cenários, a
+  conta que leva da média das safras à previsão (média + tendência + cada variável de
+  clima), os controles para ajustar o clima e o histórico. Dali dá para guardar o
+  município e colocá-lo na comparação.
+- **Boletim das safras**: um meteograma de 2000 a 2026, com rendimento, o cenário de cada
+  ano, chuva, calor, radiação, área colhida e o que o modelo teria previsto sem ver a
+  safra.
+- **Comparar**: até 4 municípios no mesmo cenário, com as faixas de erro lado a lado.
+- **Método**: o ganho sobre a régua no teste e na validação, o erro ano a ano, o peso
+  de cada variável e todas as métricas.
 
 A previsão usa o modelo principal da avaliação final, treinado com todas as safras. A
 faixa de erro (± 647 kg/ha) é o erro médio ano a ano de 2012 a 2025.
+
+O desenho fica em `peanutcast/interface/` e roda no navegador como componente do
+Streamlit; o Python continua dono dos dados e do modelo. A única conta que o navegador
+refaz é a previsão enquanto um controle de clima desliza, com os coeficientes do modelo
+linear. `tests/test_previsao.py` confere que essa conta é a do modelo: se o modelo do
+painel deixar de ser linear, o teste falha e a simulação precisa voltar para o servidor.
+
+As fontes (Archivo e IBM Plex Mono, licença OFL) ficam em `static/fonts/`, servidas pelo
+próprio Streamlit, e o app não precisa de internet para elas.
 
 A sessão dura enquanto a aba fica aberta. Recarregar a página pede login de novo, e
 isso é de propósito: está explicado em `credenciais.exemplo.yaml`.
@@ -131,15 +150,19 @@ isso é de propósito: está explicado em `credenciais.exemplo.yaml`.
 ## Estrutura
 
 ```
-app.py                     tela do painel, ponto de entrada do Streamlit
+app.py                     ponto de entrada do Streamlit: entrada, dados e painel
 peanutcast/
+  painel.py                monta os dados do painel e registra o componente
+  interface/               HTML, CSS e JS do painel, desenhados no navegador
+  estilo.py                fontes e ajustes da página do Streamlit em volta do painel
   auth.py                  cadastro, login e sair
   favoritos.py             municípios favoritos por usuário
   caminhos.py              onde ficam dados, modelos e credenciais
   municipios.py            lista de municípios atendidos
   fontes.py                acesso às APIs do SIDRA, de malhas do IBGE e da NASA POWER
   dados.py                 leitura, pelo app, do que os scripts gravaram
-  previsao.py              modelo do painel, cenários, faixa de erro e pesos do clima
+  previsao.py              modelo do painel, cenários, faixa de erro, pesos do clima e a
+                           previsão aberta em partes (média, tendência, cada variável)
   atributos.py             tabela modelável: o X e o y, sem olhar para o futuro
   validacao.py             walk-forward, teste reservado e métricas
   modelos.py               as duas baselines e os três modelos, nas duas formulações
@@ -153,7 +176,8 @@ tests/                     python -m pytest
 docs/dados.md              fontes, regras de tratamento e dicionário de colunas
 requirements.txt           versões travadas, iguais para os quatro
 credenciais.exemplo.yaml   modelo do arquivo de login
-.streamlit/config.toml     cores da marca
+.streamlit/config.toml     tema escuro e a pasta static/ servida pelo app
+static/fonts/              Archivo e IBM Plex Mono, com as licenças OFL
 dados/                     baixados do IBGE e da NASA, fora do Git
 modelos/                   modelos treinados, fora do Git
 ```

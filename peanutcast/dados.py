@@ -70,12 +70,25 @@ def carregar_teste():
 @st.cache_resource
 def _modelo(modificado_em):
     tabela = atributos.montar(pd.read_csv(DATASET))
-    return previsao.treinar(tabela), previsao.erro_medio(tabela)
+    por_safra = previsao.previsto_por_safra(tabela)
+    return previsao.treinar(tabela), previsao.erro_medio(tabela, por_safra), por_safra
 
 
 def modelo_do_painel():
     """(modelo, erro médio da validação). Treina uma vez por versão do dataset."""
-    return _modelo(_modificado_em(DATASET))
+    modelo, erro, _ = _modelo(_modificado_em(DATASET))
+    return modelo, erro
+
+
+def previsto_por_safra():
+    """O que o modelo do painel teria previsto em cada safra desde 2012, sem vê-la."""
+    return _modelo(_modificado_em(DATASET))[2]
+
+
+def versao():
+    """Muda quando qualquer arquivo lido pelo painel muda. O navegador usa
+    para saber se precisa recalcular o que guardou da última vez."""
+    return "-".join(str(_modificado_em(a)) for a in (DATASET, CLIMA_SAFRAS, MALHAS, COMPARACAO, TESTE))
 
 
 def historico(dataset, municipio):

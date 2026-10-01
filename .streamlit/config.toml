@@ -1,12 +1,18 @@
-# Cores da marca do PeanutCast. Os valores saem de mvp/marca-visual.md e são
-# os mesmos usados nos slides e na planilha.
+# Tema do PeanutCast. Fundo marrom-solo escuro, como nas plataformas de
+# previsão (Windy, Ventusky): o mapa e as cores do dado saltam sobre ele. A
+# paleta continua a de mvp/marca-visual.md, em tons para fundo escuro. O resto
+# do visual do painel está em peanutcast/interface/.
 [theme]
-base = "light"
-primaryColor = "#C8945F"           # amendoim: botões e destaques
-backgroundColor = "#F5EFE4"        # bege: fundo da página
-secondaryBackgroundColor = "#FFFFFF"  # branco: cartões e barra lateral
-textColor = "#3D2B1F"              # marrom casca: todo o texto
-font = "sans serif"
+base = "dark"
+primaryColor = "#D6A26B"            # amendoim: botões e destaques
+backgroundColor = "#14100C"         # solo: fundo da página
+secondaryBackgroundColor = "#1C1611"  # solo mais claro: campos e painéis
+textColor = "#F2EADD"               # bege: todo o texto
+font = "Archivo, Calibri, sans-serif"
+codeFont = "'IBM Plex Mono', Consolas, monospace"
 
 [server]
 headless = true
+# Serve a pasta static/ em /app/static/. As fontes do painel saem dela, e por
+# isso o app continua funcionando sem internet.
+enableStaticServing = true
