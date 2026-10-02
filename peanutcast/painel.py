@@ -170,8 +170,9 @@ def pronto():
 
 
 def mostrar(usuario_nome, meus_favoritos):
-    """Desenha o painel. Devolve o resultado do componente: .favorito traz o
-    município clicado em Guardar, e .sair vem preenchido no clique em Sair."""
+    """Desenha o painel. Devolve o resultado do componente: .favorito traz
+    {"nome": município, "guardar": bool} no clique em Guardar, e .sair vem
+    preenchido no clique em Sair."""
     pacote = dict(_pacote(dados.versao()), modo="painel", usuario=usuario_nome, favoritos=list(meus_favoritos))
     return _componente(
         data=pacote,

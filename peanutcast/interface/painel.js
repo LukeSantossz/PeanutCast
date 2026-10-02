@@ -14,7 +14,10 @@
 
 const CEN = ['Seco', 'Normal', 'Chuvoso'];
 const COR = { Seco: '#D45A43', Normal: '#D6A26B', Chuvoso: '#86B06F' };
-const PIN = ['#D6A26B', '#86B06F', '#E7D3A8', '#D45A43'];
+// Cores dos municípios na comparação. Ficam fora do vermelho, do amendoim e do
+// verde, que no painel querem dizer seco, normal e chuvoso (e rendimento baixo
+// ou alto no mapa): um município pintado de vermelho parecia o pior da lista.
+const PIN = ['#E7D3A8', '#7FAACF', '#B48CB5', '#6FC2C0'];
 const ROT = { chuva_critica_mm: 'Chuva', temp_max_critica_c: 'Máxima média', radiacao_critica_mj_m2: 'Radiação', dias_calor_critica: 'Dias acima de 35 °C' };
 const CURTO = { chuva_critica_mm: 'Chuva', temp_max_critica_c: 'Máxima', radiacao_critica_mj_m2: 'Radiação', dias_calor_critica: 'Dias > 35 °C' };
 const UN = { chuva_critica_mm: 'mm', temp_max_critica_c: '°C', radiacao_critica_mj_m2: 'MJ/m²', dias_calor_critica: 'dias' };
@@ -87,7 +90,11 @@ const corPerda = v => R_SECO(1 - (Math.min(NP - 1, Math.floor((v - P0) / 25)) + 
 
 /* ---------- estado da tela ---------- */
 const S = { vista: 'mapa', sel: null, cen: 'Normal', aj: null, camada: 'esperado', fav: new Set(), comp: [], quente: null, busca: '' };
-let ROOT = null, AVISAR = () => {}, VERSAO = null, FAVS = null, PROJ = null;
+let ROOT = null, AVISAR = () => {}, VERSAO = null, PROJ = null;
+// Favoritos que a tela já mudou e o servidor ainda não devolveu: nome → guardado.
+// O servidor responde um ciclo atrasado, então a lista dele não pode apagar o
+// clique que acabou de acontecer.
+const PEND = new Map();
 const $ = s => ROOT.querySelector(s), $$ = s => [...ROOT.querySelectorAll(s)];
 const clima = m => S.aj && S.aj.mun === m.nome && S.aj.cen === S.cen ? S.aj.v : m.cenarios[S.cen];
 const ajustado = m => !!(S.aj && S.aj.mun === m.nome && S.aj.cen === S.cen);
@@ -184,8 +191,14 @@ function montar(raiz) {
   // Quem entrar depois na mesma aba não herda o município aberto nem a comparação.
   $('[data-sair]').onclick = () => {
     Object.assign(S, { vista: 'mapa', sel: null, cen: 'Normal', aj: null, camada: 'esperado', comp: [], busca: '' });
-    FAVS = null; AVISAR('sair', true);
+    PEND.clear(); AVISAR('sair', true);
   };
+  // O mouseleave de cada município não basta: o município clicado é movido no
+  // SVG para ficar por cima, e o navegador perde a saída dele. Quem esconde a
+  // dica é o mapa inteiro, ao sair dele ou ao passar por fora dos municípios.
+  const semDica = () => { $('[data-dica]').hidden = true; };
+  $('[data-mapa]').onmouseleave = semDica;
+  $('[data-mapa-svg]').addEventListener('mousemove', e => { if (!e.target.closest('.mun')) semDica(); });
   $('[data-busca]').oninput = e => { S.busca = e.target.value; lista(); };
   $('[data-busca]').onkeydown = e => { if (e.key === 'Enter') { const b = $('[data-lista] .it'); if (b) { selecionar(b.dataset.n); e.target.value = ''; S.busca = ''; lista(); } } };
   return el;
@@ -203,18 +216,31 @@ function base() {
     t.innerHTML = `<span class="ind"></span>` + CEN.map(c => `<button data-cen="${c}"><b><i style="background:${COR[c]}"></i>${c}</b><span>${fmt(mm(c))} mm</span></button>`).join('');
     t.querySelectorAll('button').forEach(b => b.onclick = () => mudarCenario(b.dataset.cen));
   }
-  t.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.cen === S.cen));
+  // A perda no ano seco é sempre seco menos normal: o cenário escolhido não muda
+  // esse mapa, então a trilha apaga em vez de parecer que vale para ele.
+  const perda = S.camada === 'seco';
+  t.classList.toggle('inativa', perda);
+  t.title = perda ? 'A perda no ano seco compara seco e normal. Escolha um cenário para voltar ao rendimento esperado.' : '';
+  t.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', !perda && b.dataset.cen === S.cen));
   const ind = t.querySelector('.ind'); ind.style.transform = `translateX(${CEN.indexOf(S.cen) * 100}%)`; ind.style.background = COR[S.cen];
-  $$('[data-camadas] button').forEach(b => { b.classList.toggle('on', b.dataset.c === S.camada); b.onclick = () => { S.camada = b.dataset.c; render(); }; });
+  // "O mapa mostra" só vale com o mapa à vista; em Comparar e Método fica desligado.
+  const foraDoMapa = S.vista !== 'mapa' && S.vista !== 'boletim';
+  $$('[data-camadas] button').forEach(b => {
+    b.classList.toggle('on', b.dataset.c === S.camada); b.disabled = foraDoMapa;
+    b.title = foraDoMapa ? 'Volte ao mapa para trocar o que ele mostra.' : '';
+    b.onclick = () => { S.camada = b.dataset.c; render(); };
+  });
   $('[data-modelo]').innerHTML = `Modelo <b>${esc(M.nome)}</b>, clima de dez a fev<br>Erro típico <b>± ${fmt(ERRO)} kg/ha</b> · simula cenário, não prevê o tempo`;
 }
-function mudarCenario(c) { S.cen = c; S.aj = null; render(); }
+function mudarCenario(c) { S.cen = c; S.aj = null; S.camada = 'esperado'; render(); }
 
 /* =====================================================================
    LISTA LATERAL
    ===================================================================== */
 function lista() {
-  $('[data-lista-tit]').textContent = S.camada === 'esperado' ? `Ranking · ${S.cen.toLowerCase()}` : 'Perda no ano seco';
+  // Com um controle de clima mexido, o ranking já usa o valor ajustado: o título
+  // avisa no lugar do cenário, que continua à vista na barra de baixo.
+  $('[data-lista-tit]').textContent = S.camada !== 'esperado' ? 'Perda no ano seco' : S.aj ? 'Ranking · ajustado' : `Ranking · ${S.cen.toLowerCase()}`;
   const q = semAcento(S.busca), filtra = m => !q || semAcento(m.nome).includes(q);
   const ord = ordem(), pos = Object.fromEntries(ord.map((m, i) => [m.nome, i + 1]));
   const item = m => { const v = valorMapa(m), c = corMapa(m);
@@ -263,7 +289,8 @@ function mapa(forcar) {
   }
   const pequeno = W < 560;
   svg.querySelectorAll('.mun').forEach(p => { const m = MUN[p.dataset.n]; p.style.fill = corMapa(m); p.classList.toggle('sel', m.nome === S.sel); });
-  const ps = svg.querySelector('.mun.sel'); if (ps) svg.insertBefore(ps, svg.querySelector('.m-nome'));
+  const ps = svg.querySelector('.mun.sel');
+  if (ps && ps.nextElementSibling !== svg.querySelector('.m-nome')) { svg.insertBefore(ps, svg.querySelector('.m-nome')); $('[data-dica]').hidden = true; }
   svg.querySelectorAll('.m-val').forEach(t => { const m = MUN[t.dataset.n]; t.textContent = !temPrev(m) || pequeno ? '' : S.camada === 'esperado' ? fmt(valorMapa(m)) : sinal(valorMapa(m)); });
   svg.querySelectorAll('.m-nome').forEach(t => t.style.fontSize = pequeno ? '9px' : '11px');
   rotulos(svg); legenda(); bandeja();
@@ -315,7 +342,13 @@ function bandeja() {
   el.querySelector('.ir').onclick = () => S.comp.length > 1 && irPara('comparar');
 }
 function alternarComp(n) { const i = S.comp.indexOf(n); if (i >= 0) S.comp.splice(i, 1); else if (S.comp.length < 4) S.comp.push(n); render(); }
-function alternarFav(n) { S.fav.has(n) ? S.fav.delete(n) : S.fav.add(n); AVISAR('favorito', n); render(); }
+// Manda o estado desejado, não "inverta": dois cliques rápidos, ou um aviso
+// perdido num rerun interrompido, não deixam a tela e o arquivo trocados.
+function alternarFav(n) {
+  const guardar = !S.fav.has(n);
+  guardar ? S.fav.add(n) : S.fav.delete(n);
+  PEND.set(n, guardar); AVISAR('favorito', { nome: n, guardar }); render();
+}
 
 /* =====================================================================
    PAINEL DIREITO: boletim da região, ou a ficha do município
@@ -353,7 +386,7 @@ function regiaoResumo(el) {
     <div class="sec">
       <span class="rot">Boletim da região · safra ${D.proxima}</span>
       <div class="f-nome" style="margin-top:8px">Alta Paulista</div>
-      <div class="f-meta">${D.municipios.length} municípios · cenário ${S.cen.toLowerCase()}</div>
+      <div class="f-meta">${D.municipios.length} municípios · ${S.camada === 'seco' ? 'perda do normal para o seco' : 'cenário ' + S.cen.toLowerCase()}</div>
       <p class="nota" style="margin-top:14px;color:var(--txt-2)">Clique num município no mapa ou na lista para ver a previsão, o porquê e simular o clima.</p>
     </div>
     <div class="sec">
@@ -427,8 +460,10 @@ function ficha(el, m) {
   }
   const f = S.fav.has(m.nome), noc = S.comp.includes(m.nome), bf = el.querySelector('[data-fav]'), bc = el.querySelector('[data-comp]');
   bf.textContent = f ? '★ Nos meus municípios' : '☆ Guardar'; bf.classList.toggle('on', f); bf.onclick = () => alternarFav(m.nome);
-  bc.textContent = noc ? '✓ Na comparação' : '+ Comparar'; bc.classList.toggle('on', noc);
-  bc.disabled = !noc && S.comp.length >= 4; bc.onclick = () => alternarComp(m.nome);
+  const cheia = !noc && S.comp.length >= 4;
+  bc.textContent = noc ? '✓ Na comparação' : cheia ? 'Comparação cheia (4)' : '+ Comparar'; bc.classList.toggle('on', noc);
+  bc.title = cheia ? 'Tire um município da bandeja embaixo do mapa para incluir este.' : '';
+  bc.disabled = cheia; bc.onclick = () => alternarComp(m.nome);
   fichaViva(m);
 }
 
@@ -469,7 +504,8 @@ function spark(m, v) {
   const W = 360, H = 120, X = lin(ANOS[0], D.proxima, 30, W - 8), Y = lin(0, 7000, H - 16, 6);
   let g = '';
   for (let k = 0; k <= 6000; k += 3000) g += `<line x1="30" x2="${W - 8}" y1="${Y(k)}" y2="${Y(k)}" stroke="rgba(242,234,221,${k ? .07 : .2})"/><text x="24" y="${Y(k) + 3}" text-anchor="end">${k / 1000}k</text>`;
-  [ANOS[0], 2010, 2020, D.proxima].filter(a => a >= ANOS[0]).forEach(a => g += `<text x="${X(a)}" y="${H - 2}" text-anchor="middle">${a}</text>`);
+  // O último ano encosta na borda direita: centrado, ele sairia cortado.
+  [ANOS[0], 2010, 2020, D.proxima].filter(a => a >= ANOS[0]).forEach(a => g += `<text x="${a === D.proxima ? W - 2 : X(a)}" y="${H - 2}" text-anchor="${a === D.proxima ? 'end' : 'middle'}">${a}</text>`);
   let d = '', ant = false;
   ANOS.forEach((a, i) => { const h = m.hist[i]; if (!h) { ant = false; return; } d += (ant ? 'L' : 'M') + X(a).toFixed(1) + ',' + Y(h.r).toFixed(1); ant = true; });
   g += `<path d="${d}" fill="none" stroke="#BDAC97" stroke-width="1.3"/>`;
@@ -586,14 +622,20 @@ function metodo(el) {
   let cartaoTeste = '', cartaoVal = '', grafTeste = '';
   if (T && pt && TM[rv]) {
     cartaoTeste = `<div class="cartao"><span class="rot">Teste ${anosT[0]}–${anosT.at(-1)}, aberto uma única vez</span><div class="big">${sinal(TM[pt].ganho_sobre_regua)} <small>kg/ha de erro a menos</small></div><p>O modelo com clima errou <b style="color:var(--txt)">${fmt(TM[pt].mae)}</b> kg/ha; o melhor palpite sem clima, <b style="color:var(--txt)">${fmt(TM[rv].mae)}</b>. Quase todo o ganho veio de 2024, o ano da quebra.</p></div>`;
-    const H = 230, mx = Math.ceil(Math.max(...anosT.flatMap(a => [T.mae_por_ano[pt][a], T.mae_por_ano[rv][a]])) / 600) * 600, Y = lin(0, mx, H - 24, 18), cw = (W - 50) / anosT.length;
+    // A média simples das 3 safras entra no gráfico de propósito: ela errou menos
+    // que o modelo no teste, e esconder isso numa tabela recolhida seria vender
+    // o resultado melhor do que ele é.
+    const ms = kT.find(k => k.startsWith('Média das 3'));
+    const series = [[rv, '#5C4A3A'], ...(ms ? [[ms, '#8B7A69']] : []), [pt, '#D6A26B']], bw = 36, gap = 4;
+    const H = 230, mx = Math.ceil(Math.max(...anosT.flatMap(a => series.map(([k]) => T.mae_por_ano[k][a]))) / 600) * 600, Y = lin(0, mx, H - 24, 18), cw = (W - 50) / anosT.length;
     let g = '';
     for (let k = 0; k <= mx; k += 600) g += `<line x1="50" x2="${W}" y1="${Y(k)}" y2="${Y(k)}" stroke="rgba(242,234,221,${k ? .06 : .2})"/><text x="42" y="${Y(k) + 3}" text-anchor="end">${fmt(k)}</text>`;
-    anosT.forEach((a, j) => { const x = 50 + j * cw + cw / 2;
-      [[rv, '#5C4A3A', -46], [pt, '#D6A26B', 6]].forEach(([k, c, dx]) => { const v = T.mae_por_ano[k][a];
-        g += `<rect x="${x + dx}" y="${Y(v)}" width="40" height="${Y(0) - Y(v)}" rx="3" fill="${c}"/><text x="${x + dx + 20}" y="${Y(v) - 6}" text-anchor="middle" style="fill:#F2EADD;font-size:11px">${fmt(v)}</text>`; });
+    anosT.forEach((a, j) => { const x = 50 + j * cw + cw / 2, x0 = x - (series.length * bw + (series.length - 1) * gap) / 2;
+      series.forEach(([k, c], i) => { const v = T.mae_por_ano[k][a], dx = x0 + i * (bw + gap);
+        g += `<rect x="${dx}" y="${Y(v)}" width="${bw}" height="${Y(0) - Y(v)}" rx="3" fill="${c}"/><text x="${dx + bw / 2}" y="${Y(v) - 6}" text-anchor="middle" style="fill:#F2EADD;font-size:11px">${fmt(v)}</text>`; });
       g += `<text x="${x}" y="${H - 4}" text-anchor="middle" style="fill:#F2EADD;font-size:12px">${a}</text>`; });
-    grafTeste = `<div class="cartao" style="margin-top:12px"><span class="rot">Erro médio por safra do teste, kg/ha</span><svg viewBox="0 0 ${W} ${H}" style="width:100%;margin-top:12px">${g}</svg><p class="nota" style="margin-top:8px"><span style="color:#D6A26B">■</span> ${esc(M.nome)}, o modelo do painel · <span style="color:#8B7A69">■</span> ${esc(rv)}, a régua sem clima. Em 2024 a seca derrubou a safra e todos os palpites erraram muito.</p></div>`;
+    const notaMs = ms ? ` · <span style="color:#8B7A69">■</span> ${esc(ms)}, sem corrigir a tendência: no teste errou menos que o modelo (${fmt(TM[ms].mae)} contra ${fmt(TM[pt].mae)}), mas perdeu na validação, e a régua foi registrada antes de o teste ser aberto` : '';
+    grafTeste = `<div class="cartao" style="margin-top:12px"><span class="rot">Erro médio por safra do teste, kg/ha</span><svg viewBox="0 0 ${W} ${H}" style="width:100%;margin-top:12px">${g}</svg><p class="nota" style="margin-top:8px"><span style="color:#5C4A3A">■</span> ${esc(rv)}, a régua sem clima${notaMs} · <span style="color:#D6A26B">■</span> ${esc(M.nome)}, o modelo do painel. Em 2024 a seca derrubou a safra e todos os palpites erraram muito.</p></div>`;
   } else {
     cartaoTeste = `<div class="cartao"><span class="rot">Teste final</span><p style="margin-top:10px">O teste de 2023 a 2025 ainda não foi aberto nesta máquina. Rode <code>python scripts/avaliar_teste.py --abrir-teste</code>.</p></div>`;
   }
@@ -609,8 +651,10 @@ function metodo(el) {
     g2 += `<text x="0" y="${y + 4}" style="font-family:var(--sans);font-size:14px;fill:#F2EADD">${ROT[f.c]}</text><rect x="${Math.min(X(0), X(f.k))}" y="${y - 7}" width="${Math.abs(X(f.k) - X(0))}" height="14" rx="3" fill="${f.k < 0 ? '#D45A43' : '#86B06F'}"/>` +
       `<text x="${X(f.k) + (f.k < 0 ? -8 : 8)}" y="${y + 4}" text-anchor="${f.k < 0 ? 'end' : 'start'}" style="fill:#F2EADD;font-size:11px">${sinal(f.k)}</text><text x="800" y="${y + 4}">uma variação típica = ${fmt(f.sd, DEC[f.c] || 1)} ${UN[f.c]}</text>`; });
   const tr = (k, cols) => `<tr class="${k === pv || k === pt ? 'dest' : ''}"><td>${esc(k)}</td>${cols.map(c => `<td>${c}</td>`).join('')}</tr>`;
-  const tabelas = (V ? `<table class="tab"><thead><tr><th>Validação ${V.anos.join('–')}</th><th>Erro médio</th><th>Variação entre anos</th><th>RMSE</th><th>R²</th><th>Ganho sobre a régua</th></tr></thead><tbody>${kP.slice().sort((a, b) => P[a].mae - P[b].mae).map(k => tr(k, [fmt(P[k].mae), fmt(P[k].mae_desvio_entre_anos), fmt(P[k].rmse), fmt(P[k].r2, 2), sinal(P[k].ganho_sobre_baseline)])).join('')}</tbody></table>` : '') +
-    (T ? `<table class="tab" style="margin-top:24px"><thead><tr><th>Teste ${anosT.join(', ')}</th><th>Erro médio</th><th>RMSE</th><th>Ganho sobre a régua</th>${anosT.map(a => `<th>${a}</th>`).join('')}</tr></thead><tbody>${kT.slice().sort((a, b) => TM[a].mae - TM[b].mae).map(k => tr(k, [fmt(TM[k].mae), fmt(TM[k].rmse), sinal(TM[k].ganho_sobre_regua), ...anosT.map(a => fmt(T.mae_por_ano[k][a]))])).join('')}</tbody></table>` : '');
+  // A régua não ganha de si mesma: na linha dela, "régua" no lugar de um "+0".
+  const ganho = (k, v) => k === rv ? 'régua' : sinal(v);
+  const tabelas = (V ? `<table class="tab"><thead><tr><th>Validação ${V.anos.join('–')}</th><th>Erro médio</th><th>Variação entre anos</th><th>RMSE</th><th>R²</th><th>Ganho sobre a régua</th></tr></thead><tbody>${kP.slice().sort((a, b) => P[a].mae - P[b].mae).map(k => tr(k, [fmt(P[k].mae), fmt(P[k].mae_desvio_entre_anos), fmt(P[k].rmse), fmt(P[k].r2, 2), ganho(k, P[k].ganho_sobre_baseline)])).join('')}</tbody></table>` : '') +
+    (T ? `<table class="tab" style="margin-top:24px"><thead><tr><th>Teste ${anosT.join(', ')}</th><th>Erro médio</th><th>RMSE</th><th>Ganho sobre a régua</th>${anosT.map(a => `<th>${a}</th>`).join('')}</tr></thead><tbody>${kT.slice().sort((a, b) => TM[a].mae - TM[b].mae).map(k => tr(k, [fmt(TM[k].mae), fmt(TM[k].rmse), ganho(k, TM[k].ganho_sobre_regua), ...anosT.map(a => fmt(T.mae_por_ano[k][a]))])).join('')}</tbody></table>` : '');
   el.innerHTML = `<div class="sobre-in">${cab('Como o número é feito', 'Método · para validar antes de recomendar')}
     <div class="tese">${cartaoTeste}${cartaoVal}</div>${grafTeste}
     <div class="cartao" style="margin-top:12px"><span class="rot">Quanto cada variável move a previsão, em kg/ha</span><div class="rolar"><svg viewBox="0 0 ${W} ${H2}" style="width:100%;margin-top:14px">${g2}</svg></div><p class="nota" style="margin-top:8px">${esc(M.nome)}, com o clima de dezembro a fevereiro. Cada barra é quanto a previsão muda quando a variável sobe uma variação típica (um desvio-padrão), com as outras paradas. Calor e radiação na floração puxam o rendimento para baixo; a chuva puxa para cima. A faixa de erro (± ${fmt(ERRO)}) é ${fmt(ERRO / Math.max(...fs.map(f => Math.abs(f.k))))} vezes a maior barra.</p></div>
@@ -648,10 +692,13 @@ export default function (component) {
   if (nova) { iniciar(data); VERSAO = data.versao; PROJ = null; }
   if (data.modo === 'capa') { capa(parentElement); return; }
 
-  // Favoritos: o arquivo do servidor manda quando muda; entre um clique e a
-  // gravação, vale o que a tela já mostrou.
-  const favs = JSON.stringify(data.favoritos || []);
-  if (favs !== FAVS) { S.fav = new Set(data.favoritos || []); FAVS = favs; }
+  // Favoritos: vale o arquivo do servidor, com os cliques que ele ainda não
+  // confirmou por cima. Um clique sai da fila quando o servidor concorda.
+  S.fav = new Set(data.favoritos || []);
+  for (const [n, guardar] of PEND) {
+    if (S.fav.has(n) === guardar) PEND.delete(n);
+    else guardar ? S.fav.add(n) : S.fav.delete(n);
+  }
   if (S.sel && !MUN[S.sel]) S.sel = null;
   S.comp = S.comp.filter(n => MUN[n]);
 

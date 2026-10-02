@@ -50,14 +50,3 @@ def remover(usuario, municipio):
         lista.remove(municipio)
         _gravar_tudo(dados)
     return sorted(lista)
-
-
-def alternar(usuario, municipio):
-    """Adiciona se não está na lista, remove se está.
-
-    É o que o botão de favoritar faz: um clique só, sem o usuário precisar
-    saber em que estado a lista está.
-    """
-    if municipio in _ler_tudo().get(usuario, []):
-        return remover(usuario, municipio)
-    return adicionar(usuario, municipio)

@@ -51,9 +51,15 @@ if not painel.pronto():
 estilo.painel()
 resultado = painel.mostrar(auth.nome_de_quem_entrou(), favoritos.listar(usuario))
 
-# O painel avisa o clique em Guardar com o nome do município. A tela já mudou
-# no navegador; aqui a escolha vai para o arquivo de favoritos.
+# O painel avisa o clique em Guardar com o município e o estado que a tela
+# passou a mostrar. A tela já mudou no navegador; aqui a escolha vai para o
+# arquivo. Gravar o estado, e não inverter o que está no arquivo, é o que
+# impede tela e arquivo de ficarem trocados quando um aviso se perde.
 if resultado.favorito:
-    favoritos.alternar(usuario, resultado.favorito)
+    escolha = resultado.favorito
+    if escolha["guardar"]:
+        favoritos.adicionar(usuario, escolha["nome"])
+    else:
+        favoritos.remover(usuario, escolha["nome"])
 if resultado.sair:
     auth.sair(autenticador)
