@@ -9,12 +9,69 @@ execução, pelo auto_hash. Serve para criar o primeiro usuário sem script.
 
 A sessão dura enquanto a aba fica aberta: expiry_days está em 0, então não há
 cookie de "continuar conectado". A razão está no comentário do YAML.
+
+A biblioteca fala inglês nas regras de senha e nos erros de cadastro. As
+regras continuam as dela (o validador só troca a explicação), e os erros são
+traduzidos aqui. Tudo isso foi escrito contra a 0.4.2, travada no
+requirements.txt: ao atualizar, confira as mensagens de _ERROS_CADASTRO.
 """
+import re
+
 import streamlit as st
 import streamlit_authenticator as stauth
 import yaml
 
 from .caminhos import CREDENCIAIS
+
+# Os símbolos que a biblioteca aceita na senha, na mesma ordem do padrão dela.
+_SIMBOLOS = r"""!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~"""
+
+REGRAS_SENHA = (
+    "A senha precisa ter de 8 a 20 caracteres, com pelo menos uma letra minúscula, "
+    "uma maiúscula, um número e um símbolo, como ! @ # $ % & *. "
+    "Letras com acento e espaços não são aceitos."
+)
+
+_ERROS_CADASTRO = {
+    "First name is not valid": "Nome inválido.",
+    "Last name is not valid": "Sobrenome inválido.",
+    "Email is not valid": "E-mail inválido.",
+    "Username is not valid": "Usuário inválido: use até 20 letras sem acento, números, _ ou -.",
+    "Password/repeat password fields cannot be empty": "Preencha a senha e a repetição da senha.",
+    "Passwords do not match": "As duas senhas não são iguais.",
+    "Email already taken": "Este e-mail já tem conta.",
+    "Username/email already taken": "Este usuário ou e-mail já tem conta.",
+}
+
+
+def _juntar(itens):
+    return itens[0] if len(itens) == 1 else ", ".join(itens[:-1]) + " e " + itens[-1]
+
+
+class _Validador(stauth.Validator):
+    """As regras de senha da biblioteca, explicadas em português.
+
+    validate_password continua o da biblioteca. Só diagnose_password, que monta
+    a mensagem de erro, é reescrito, com um item a mais: a biblioteca recusa
+    acento e espaço sem dizer por quê, e a mensagem dela saía vazia nesse caso.
+    """
+
+    def diagnose_password(self, password):
+        faltas = []
+        if not 8 <= len(password) <= 20:
+            faltas.append("de 8 a 20 caracteres")
+        if not re.search(r"[a-z]", password):
+            faltas.append("uma letra minúscula")
+        if not re.search(r"[A-Z]", password):
+            faltas.append("uma letra maiúscula")
+        if not re.search(r"\d", password):
+            faltas.append("um número")
+        if not re.search(f"[{_SIMBOLOS}]", password):
+            faltas.append("um símbolo, como ! @ # $ % & *")
+        frases = ["A senha precisa ter " + _juntar(faltas) + "."] if faltas else []
+        if re.search(f"[^A-Za-z\\d{_SIMBOLOS}]", password):
+            frases.append(("Ela" if frases else "A senha") + " não pode ter acento nem espaço.")
+        return " ".join(frases) or REGRAS_SENHA
 
 # Mensagens em português. A biblioteca aceita os rótulos por parâmetro.
 CAMPOS_LOGIN = {
@@ -54,12 +111,35 @@ def criar_autenticador():
     """Monta o objeto de autenticação a partir do arquivo de credenciais."""
     config = _ler_configuracao()
     cookie = config["cookie"]
-    return stauth.Authenticate(
+    autenticador = stauth.Authenticate(
         str(CREDENCIAIS),          # caminho, não dicionário: a biblioteca grava de volta
         cookie["name"],
         cookie["key"],
         cookie["expiry_days"],
+        validator=_Validador(),
+        password_instructions=REGRAS_SENHA,
     )
+    _marcar_login_vazio(autenticador)
+    return autenticador
+
+
+def _marcar_login_vazio(autenticador):
+    """Marca na sessão quando Entrar é clicado com usuário ou senha em branco.
+
+    A biblioteca devolve None nesse caso, o mesmo valor de "ninguém clicou",
+    e a tela ficava muda. O formulário é dela, então a única forma de saber
+    do clique é olhar a chamada que ela faz ao controlador. A outra chamada,
+    com token, vem do cookie e não passa por aqui como clique.
+    """
+    controlador = autenticador.authentication_controller
+    original = controlador.login
+
+    def login(username=None, password=None, *args, token=None, **kwargs):
+        if token is None and not (username and password and password.strip()):
+            st.session_state["pc_login_vazio"] = True
+        return original(username, password, *args, token=token, **kwargs)
+
+    controlador.login = login
 
 
 def tela_de_entrada(autenticador, capa=None):
@@ -106,7 +186,9 @@ def _formularios(autenticador):
 
     with aba_entrar:
         autenticador.login(fields=CAMPOS_LOGIN)
-        if st.session_state.get("authentication_status") is False:
+        if st.session_state.pop("pc_login_vazio", False):
+            st.error("Preencha usuário e senha.")
+        elif st.session_state.get("authentication_status") is False:
             st.error("Usuário ou senha incorretos.")
 
     with aba_cadastrar:
@@ -121,8 +203,9 @@ def _formularios(autenticador):
                 st.success("Conta criada. Volte para a aba Entrar.")
         except Exception as erro:
             # A biblioteca sinaliza senha fraca, usuário repetido e e-mail
-            # inválido por exceção. Mostrar a mensagem é melhor que engolir.
-            st.error(str(erro))
+            # inválido por exceção. Mostrar a mensagem é melhor que engolir;
+            # a de senha já vem em português do _Validador, as outras daqui.
+            st.error(_ERROS_CADASTRO.get(str(erro), str(erro)))
 
 
 def nome_de_quem_entrou():

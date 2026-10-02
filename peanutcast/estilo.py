@@ -37,7 +37,14 @@ _ENTRADA = """
 [data-testid="stTextInputRootElement"]{border-radius:6px}
 [data-testid="stFormSubmitButton"] button{width:100%;background:#D6A26B;border-color:#D6A26B;color:#14100C;font-weight:700;padding:10px 0}
 [data-testid="stFormSubmitButton"] button:hover{background:#E2B47F;border-color:#E2B47F;color:#14100C}
+/* O sublinhado móvel das abas é posicionado pela largura das abas, sem contar
+   o espaço entre elas: com o gap, ele parava entre "Entrar" e "Criar conta".
+   O sublinhado sai, e a aba ativa ganha o seu próprio traço. */
 [data-baseweb="tab-list"]{gap:22px}
+[data-baseweb="tab-highlight"]{display:none}
+[data-baseweb="tab"][aria-selected="true"]{box-shadow:inset 0 -2px 0 #D6A26B}
+/* "Press Enter to submit form": dica do Streamlit, só em inglês. */
+[data-testid="InputInstructions"]{display:none}
 .pc-nota{font-size:12.5px;color:#8B7A69;line-height:1.5;margin-top:18px}
 .pc-nota code{font-size:12px}
 """

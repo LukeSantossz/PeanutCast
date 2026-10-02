@@ -86,7 +86,8 @@ O app abre em `http://localhost:8501`. O usuário de exemplo é `lucas` com senh
 regravado, então anote a senha antes se for mudar.
 
 Para criar sua própria conta, use a aba **Criar conta** na tela de entrada. A senha
-precisa de maiúscula, minúscula, número e símbolo.
+precisa ter de 8 a 20 caracteres, com maiúscula, minúscula, número e símbolo, sem
+acento nem espaço.
 
 `credenciais.yaml` e `dados/favoritos.json` ficam fora do Git: cada um tem os seus.
 
