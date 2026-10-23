@@ -22,6 +22,7 @@ const ROT = { chuva_critica_mm: 'Chuva', temp_max_critica_c: 'Máxima média', r
 const CURTO = { chuva_critica_mm: 'Chuva', temp_max_critica_c: 'Máxima', radiacao_critica_mj_m2: 'Radiação', dias_calor_critica: 'Dias > 35 °C' };
 const UN = { chuva_critica_mm: 'mm', temp_max_critica_c: '°C', radiacao_critica_mj_m2: 'MJ/m²', dias_calor_critica: 'dias' };
 const DEC = { chuva_critica_mm: 0, temp_max_critica_c: 1, radiacao_critica_mj_m2: 1, dias_calor_critica: 0 };
+const NOME_EFEITO_CLIMA = 'Efeito do clima simulado';
 
 const soma = a => a.reduce((x, y) => x + y, 0);
 const mediana = a => { const s = [...a].sort((x, y) => x - y), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
@@ -56,6 +57,25 @@ const temPrev = m => m.media != null && !!m.cenarios;
 const contrib = c => COL.map((k, i) => M.coef[i] * (c[k] - M.mu[i]) / M.sd[i]);
 const prever = (m, c) => m.media + M.b + soma(contrib(c));
 const erroLocal = m => m.wf.length ? soma(m.wf.map(w => Math.abs(w.r - w.p))) / m.wf.length : null;
+
+/* Alerta de extrapolação. Os controles travam cada variável no mínimo e no
+   máximo do município, mas a combinação pode nunca ter acontecido (chuva no
+   máximo com calor no máximo). vizinha() acha a safra de clima mais parecida,
+   com a distância em desvios típicos do modelo; os cenários ficam a menos de
+   0,5 e um extremo sozinho a até 1,5, por isso o alerta começa acima de LONGE. */
+const LONGE = 1.5;
+function vizinha(m, c) {
+  let melhor = null;
+  ANOS.forEach((ano, i) => {
+    const xs = COL.map(k => m.clima[k][i]);
+    if (xs.some(x => x == null)) return;
+    const d = Math.sqrt(soma(COL.map((k, j) => ((c[k] - xs[j]) / M.sd[j]) ** 2)));
+    if (!melhor || d < melhor.d) melhor = { ano, d };
+  });
+  return melhor;
+}
+const alerta = (m, c) => { const v = vizinha(m, c);
+  return v && v.d > LONGE ? `Combinação de clima que ${esc(m.nome)} nunca teve: a safra mais parecida, ${v.ano}, fica a ${fmt(v.d, 1)} desvios típicos. Aqui o modelo extrapola, e o erro pode passar de ± ${fmt(ERRO)} kg/ha.` : ''; };
 
 function tercos(m) {   // os terços de previsao.cenarios: de que cenário foi cada safra
   const ch = m.clima.chuva_critica_mm, idx = ANOS.map((_, i) => i).filter(i => ch[i] != null).sort((a, b) => ch[a] - ch[b]);
@@ -418,12 +438,13 @@ function ficha(el, m) {
           <div><div class="f-nome">${esc(m.nome)}</div><div class="f-meta">IBGE ${m.codigo} · célula de clima ${m.celula + 1}${viz ? ` com ${viz} vizinho${viz > 1 ? 's' : ''}` : ''}</div></div>
           <button class="fechar" data-fechar-ficha aria-label="Fechar">×</button>
         </div>
-        <div class="f-acoes"><button class="btn" data-fav></button><button class="btn" data-comp></button></div>
+        <div class="f-acoes"><button class="btn" data-fav></button><button class="btn" data-comp></button><button class="btn" data-exp title="Abre a ficha numa aba nova, pronta para imprimir ou salvar em PDF">Exportar ficha</button></div>
         <div class="f-num"><span class="v" data-f-v></span><span class="u">kg/ha</span></div>
         <div class="f-sub" data-f-sub></div>
         <div class="reg" data-f-reg><div class="ax"></div><div class="fx"></div><div class="ag"></div></div>
         <div class="reg-leg"><span>piso <b data-f-lo></b></span><span>teto <b data-f-hi></b></span></div>
         <p class="nota" style="margin-top:8px">Piso e teto: ± ${fmt(ERRO)} kg/ha, o erro médio do modelo em safras que ele não tinha visto. Não é intervalo de confiança.</p>
+        <p class="alerta" data-f-alerta role="status" hidden></p>
       </div>
       <div class="sec">
         <h3><span class="rot">Nos três cenários</span></h3>
@@ -446,6 +467,7 @@ function ficha(el, m) {
       </div>`;
     el.querySelector('[data-fechar-ficha]').onclick = () => selecionar(null);
     el.querySelector('[data-f-bol]').onclick = () => irPara('boletim');
+    el.querySelector('[data-exp]').onclick = () => exportarFicha(m);
     el.querySelector('[data-f-reset]').onclick = () => { S.aj = null; el.dataset.chave = ''; render(); };
     const c0 = clima(m);
     el.querySelector('[data-f-sl]').innerHTML = COL.map((k, i) => { const [a, b] = m.lim[k], d = DEC[k], P = v => `calc(${b > a ? (v - a) / (b - a) : 0.5} * (100% - 14px) + 7px)`;
@@ -476,6 +498,7 @@ function fichaViva(m) {
   r.querySelector('.fx').style.left = clamp(X(v - ERRO), 0, 100) + '%'; r.querySelector('.fx').style.width = (clamp(X(v + ERRO), 0, 100) - clamp(X(v - ERRO), 0, 100)) + '%';
   r.querySelector('.ag').style.left = clamp(X(v), 0, 100) + '%';
   q('[data-f-lo]').textContent = fmt(v - ERRO); q('[data-f-hi]').textContent = fmt(v + ERRO);
+  const al = alerta(m, c), pa = q('[data-f-alerta]'); pa.innerHTML = al; pa.hidden = !al;
 
   q('[data-f-cen]').innerHTML = CEN.map(k => { const x = k === S.cen ? v : m.prev[k], cr = corRend(x);
     return `<button class="cen-chip" data-cen="${k}" aria-pressed="${k === S.cen}" style="background:${cr};color:${tinta(cr)}"><span class="k"><i style="background:${COR[k]}"></i>${k}</span><div class="x">${fmt(x)}</div></button>`; }).join('');
@@ -489,7 +512,7 @@ function fichaViva(m) {
 
   const cl = soma(cs), passos = [[`Média ${m.anosMedia[0]}–${m.anosMedia.at(-1)}`, m.media, m.media, fmt(m.media), '#8B7A69'],
     ['Tendência de alta', m.media, m.media + M.b, sinal(M.b), '#BDAC97'],
-    ['Clima do cenário' + (ajustado(m) ? '*' : ''), m.media + M.b, v, sinal(cl), cl >= 0 ? '#86B06F' : '#D45A43']];
+    [NOME_EFEITO_CLIMA + (ajustado(m) ? '*' : ''), m.media + M.b, v, sinal(cl), cl >= 0 ? '#86B06F' : '#D45A43']];
   const todos = passos.flatMap(p => [p[1], p[2]]), XP = lin(Math.min(...todos) - 40, Math.max(...todos) + 40, 0, 100);
   q('[data-f-porque]').innerHTML = passos.map(([rot, de, ate, t, cor], i) => `<tr><td>${rot}</td><td><div class="bar"><i style="left:${XP(Math.min(de, ate))}%;width:${i ? Math.max(1, Math.abs(XP(ate) - XP(de))) : 0.8}%;background:${cor}"></i></div></td><td>${t}</td></tr>`).join('') +
     `<tr class="tot"><td>Previsão</td><td><div class="bar"><i style="left:${XP(v)}%;width:1.2%;background:var(--amendoim);height:14px;top:-2px"></i></div></td><td>${fmt(v)}</td></tr>`;
@@ -512,6 +535,80 @@ function spark(m, v) {
   ANOS.forEach((a, i) => { const h = m.hist[i]; if (h) g += `<circle cx="${X(a)}" cy="${Y(h.r)}" r="2.6" fill="${valida(h) ? (COR[TER[m.nome][a]] || '#8B7A69') : '#1C1611'}" stroke="${valida(h) ? 'none' : '#8B7A69'}"/>`; });
   g += `<rect x="${X(D.proxima) - 4}" y="${Y(v + ERRO)}" width="8" height="${Y(v - ERRO) - Y(v + ERRO)}" rx="2" fill="rgba(242,234,221,.14)"/><circle cx="${X(D.proxima)}" cy="${Y(v)}" r="4.5" fill="#D6A26B"/>`;
   $('[data-dir]').querySelector('[data-f-spark]').innerHTML = `<svg viewBox="0 0 ${W} ${H}">${g}</svg><p class="nota" style="margin-top:6px">Cada ponto tem a cor do clima que a safra teve: <span style="color:${COR.Seco}">seco</span>, <span style="color:${COR.Normal}">normal</span> ou <span style="color:${COR.Chuvoso}">chuvoso</span>. Vazado: menos de ${D.areaMin} ha, fora do modelo.</p>`;
+}
+
+/* =====================================================================
+   FICHA PARA IMPRIMIR
+   ===================================================================== */
+// A ficha do município como página clara e completa, para levar à reunião ou
+// salvar em PDF. Sai do mesmo estado da tela: `c` é o clima usado, como clima(m)
+// devolve, e só é o próprio objeto do cenário sem ajuste. Por isso a ficha diz
+// "ajustado" exatamente quando a tela diz, mesmo com o controle de volta ao valor
+// do cenário. Não carrega nada de fora, porque abre como blob, sem o servidor.
+const CSS_FICHA = `
+  @page{margin:14mm}
+  body{font:14px/1.45 Archivo,system-ui,sans-serif;color:#1C1611;background:#fff;max-width:760px;margin:24px auto;padding:0 16px}
+  h1{font-size:26px;margin:0}h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6B5A49;margin:22px 0 6px;border-bottom:1px solid #E4DACB;padding-bottom:4px}
+  .meta,.nota{color:#6B5A49;font-size:12.5px}.num{font-size:40px;font-weight:700;margin:14px 0 0}.num small{font-size:15px;font-weight:400}
+  table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:3px 8px 3px 0;border-bottom:1px solid #F0E9DE;font-variant-numeric:tabular-nums}
+  td:last-child,th:last-child{text-align:right}.tot td{font-weight:700;border-top:1.5px solid #1C1611}
+  i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}.sel td{font-weight:700}
+  .safras{display:grid;grid-template-columns:repeat(3,1fr);gap:0 24px;align-items:start}ul{padding-left:18px;margin:6px 0}
+  .barra{display:flex;justify-content:flex-end;margin-bottom:12px}.barra button{font:inherit;padding:6px 12px;border:1px solid #BDAC97;border-radius:6px;background:#F7F2EA;cursor:pointer}
+  .alerta{margin:10px 0 0;padding:8px 10px;border-left:3px solid #D45A43;background:#FBEDE9}
+  @media print{.barra{display:none}body{margin:0;max-width:none}}`;
+
+function fichaHtml(m, cen, c) {
+  const aj = c !== m.cenarios[cen], cs = contrib(c), v = prever(m, c);
+  const viz = D.municipios.filter(x => x.celula === m.celula && x !== m).length, nome = esc(m.nome);
+  const linha = (...tds) => `<tr>${tds.map(t => `<td>${t}</td>`).join('')}</tr>`;
+  const porque = linha(`Média ${m.anosMedia[0]}–${m.anosMedia.at(-1)}`, fmt(m.media)) + linha('Tendência de alta', sinal(M.b)) +
+    COL.map((k, i) => linha(`${ROT[k]}: ${fmt(c[k], DEC[k])} ${UN[k]}`, sinal(cs[i]))).join('') +
+    `<tr class="tot"><td>Previsão</td><td>${fmt(v)}</td></tr>`;
+  const cenarios = CEN.map(k => `<tr class="${k === cen ? 'sel' : ''}"><td><i style="background:${COR[k]}"></i>${k}${k === cen && aj ? ' ajustado' : ''}</td><td>${fmt((k === cen ? c : m.cenarios[k]).chuva_critica_mm)} mm</td><td>${fmt(k === cen ? v : m.prev[k])}</td></tr>`).join('');
+  const climaTab = COL.map(k => linha(`${ROT[k]} <span class="nota">${UN[k]}</span>`, fmt(c[k], DEC[k]), `${fmt(m.lim[k][0], DEC[k])} a ${fmt(m.lim[k][1], DEC[k])}`)).join('');
+  const safras = ANOS.map((a, i) => [a, m.hist[i]]).filter(([, h]) => h);
+  // Em três colunas, para o histórico caber na página com o resto.
+  const n3 = Math.ceil(safras.length / 3), hist = [0, 1, 2].map(j => `<table class="hist"><tr><th>Safra</th><th>kg/ha</th><th>ha</th></tr>${safras.slice(j * n3, (j + 1) * n3)
+    .map(([a, h]) => linha(a, fmt(h.r), h.ac == null ? '—' : fmt(h.ac) + (valida(h) ? '' : ' *'))).join('')}</table>`).join('');
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PeanutCast · ${nome} · safra ${D.proxima}</title><style>${CSS_FICHA}</style></head><body>
+<div class="barra"><button onclick="print()">Imprimir ou salvar em PDF</button></div>
+<h1>${nome}</h1>
+<div class="meta">IBGE ${m.codigo} · Alta Paulista · safra ${D.proxima} · cenário ${cen.toLowerCase()}${aj ? ' ajustado' : ''}</div>
+<div class="num">${fmt(v)} <small>kg/ha</small></div>
+<div>piso <b>${fmt(v - ERRO)}</b> · teto <b>${fmt(v + ERRO)}</b> <span class="nota">(± ${fmt(ERRO)} kg/ha)</span></div>
+${alerta(m, c) ? `<p class="alerta">${alerta(m, c)}</p>` : ''}
+<h2>Nos três cenários</h2>
+<table><tr><th>Cenário</th><th>Chuva de dez a fev</th><th>kg/ha</th></tr>${cenarios}</table>
+<p class="nota">Perda no ano seco: ${sinal(m.prev.Seco - m.prev.Normal)} kg/ha. Erro do modelo aqui: ${m.wf.length ? `± ${fmt(erroLocal(m))} kg/ha em ${m.wf.length} safras` : 'sem safras para medir'}.</p>
+<h2>Por que esse número, em kg/ha</h2>
+<p class="nota"><b>${NOME_EFEITO_CLIMA}:</b> soma das quatro contribuições abaixo.</p>
+<table class="porque">${porque}</table>
+<h2>Clima usado e o que ${nome} já teve desde ${ANOS[0]}</h2>
+<table class="clima"><tr><th>Variável</th><th>Usado</th><th>Mínimo a máximo</th></tr>${climaTab}</table>
+<h2>Safras, kg/ha e hectares colhidos</h2>
+<div class="safras">${hist}</div>
+${safras.some(([, h]) => !valida(h)) ? `<p class="nota">* menos de ${D.areaMin} ha colhidos: fora do modelo.</p>` : ''}
+<h2>Limitações</h2>
+<ul class="nota">
+<li>Piso e teto: ± ${fmt(ERRO)} kg/ha, o erro médio do modelo em safras que ele não tinha visto. Não é intervalo de confiança.</li>
+<li>O número simula um cenário de clima de dezembro a fevereiro: não prevê o tempo.</li>
+<li>Rendimento e clima são do município inteiro, não de uma lavoura.${viz ? ` ${nome} divide a célula de clima da NASA POWER com ${viz} vizinho${viz > 1 ? 's' : ''}, que recebem o mesmo cenário.` : ''}</li>
+${aj ? `<li>Clima ajustado no simulador do painel, dentro do mínimo e do máximo já vistos em ${nome}.</li>` : ''}
+</ul>
+<p class="nota">Modelo ${esc(M.nome)}. Dados IBGE/SIDRA-PAM ${ANOS[0]}–${ANOS.at(-1)} e NASA POWER. Gerado pelo PeanutCast em ${new Date().toLocaleDateString('pt-BR')}.</p>
+</body></html>`;
+}
+
+// Abre a ficha numa aba nova; com o pop-up bloqueado, baixa o arquivo.
+function exportarFicha(m) {
+  const url = URL.createObjectURL(new Blob([fichaHtml(m, S.cen, clima(m))], { type: 'text/html;charset=utf-8' }));
+  if (!window.open(url, '_blank')) {
+    const a = document.createElement('a');
+    a.href = url; a.download = `peanutcast-${semAcento(m.nome).replace(/[^a-z0-9]+/g, '-')}-${D.proxima}.html`; a.click();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 /* =====================================================================
@@ -683,6 +780,9 @@ function ouvirJanela() {
     if (['1', '2', '3'].includes(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) mudarCenario(CEN[+e.key - 1]);
   });
 }
+
+// O Streamlit só usa o default; estes servem a tests/test_ficha.py, que roda a ficha no Node.
+export { iniciar, fichaHtml, exportarFicha, vizinha };
 
 export default function (component) {
   const { data, parentElement, setTriggerValue } = component;

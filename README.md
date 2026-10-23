@@ -125,7 +125,10 @@ plataformas de previsão (Windy, Ventusky, meteoblue):
 - **Ficha do município**, ao clicar: a previsão com piso e teto, os três cenários, a
   conta que leva da média das safras à previsão (média + tendência + cada variável de
   clima), os controles para ajustar o clima e o histórico. Dali dá para guardar o
-  município e colocá-lo na comparação.
+  município, colocá-lo na comparação e exportar a ficha: ela abre numa aba nova, clara,
+  pronta para imprimir ou salvar em PDF, com o cenário e o ajuste de clima da tela. Se o
+  ajuste monta uma combinação de clima que o município nunca teve, a ficha avisa que ali
+  o modelo extrapola.
 - **Boletim das safras**: um meteograma de 2000 a 2026, com rendimento, o cenário de cada
   ano, chuva, calor, radiação, área colhida e o que o modelo teria previsto sem ver a
   safra.
