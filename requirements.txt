@@ -42,6 +42,17 @@ plotly==7.0.0
 # --- Testes: entram na Semana 5, com a regra de não olhar para o futuro ---
 pytest==9.0.3
 
+# --- API REST: entra em 04/11, para a atividade de IAL-221 ---
+# httpx é só para os testes (o TestClient usa ele). python-multipart lê o
+# formulário do login. pydantic e starlette vêm com o fastapi e estão travadas
+# porque os modelos e o middleware da API dependem delas.
+fastapi==0.162.0
+uvicorn==0.54.0
+httpx==0.28.1
+python-multipart==0.0.32
+pydantic==2.14.2
+starlette==1.9.0
+
 # ---------------------------------------------------------------------------
 # Instaladas junto, por dependência de outras. Estão travadas porque o login
 # depende delas: o streamlit-authenticator usa bcrypt para a senha, PyJWT para

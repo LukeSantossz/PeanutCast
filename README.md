@@ -154,11 +154,44 @@ próprio Streamlit, e o app não precisa de internet para elas.
 A sessão dura enquanto a aba fica aberta. Recarregar a página pede login de novo, e
 isso é de propósito: está explicado em `credenciais.exemplo.yaml`.
 
+### API REST
+
+O mesmo modelo também sai por uma API REST, feita para a atividade de IAL-221. Ela lê
+o mesmo pacote de dados do painel, então os números são os mesmos.
+
+```bash
+uvicorn peanutcast.api:app --port 8000
+```
+
+A documentação abre em `http://localhost:8000/docs` (Swagger UI) e
+`http://localhost:8000/redoc`. O login usa os mesmos usuários do painel.
+
+| Método | Rota (sob `/api/v1`) | Token | O que faz |
+|---|---|---|---|
+| GET | `/saude` | não | estado da API e versão dos dados |
+| POST | `/auth/token` | não | troca usuário e senha por um JWT de 30 minutos |
+| GET | `/municipios` | não | os 24 municípios nos três cenários |
+| GET | `/municipios/{codigo}` | sim | ficha: previsão, faixa, decomposição, CPTEC, histórico |
+| POST | `/municipios/{codigo}/simulacao` | sim | previsão com outro clima; avisa quando extrapola |
+| GET | `/previsao-sazonal` | não | tercil de chuva do CPTEC para dez a fev |
+| GET, PUT, DELETE | `/usuarios/{usuario}/favoritos[/{codigo}]` | sim | favoritos, só do próprio usuário |
+
+Segurança: senha com bcrypt, no máximo 5 logins por minuto por IP (depois 429), 403 para
+favoritos de outro usuário, 422 para clima fisicamente impossível, CORS só para o
+painel e cabeçalhos de segurança. A chave do JWT vem de `PEANUTCAST_API_CHAVE` ou, sem
+ela, da chave do cookie em `credenciais.yaml`. O limite de logins fica na memória do
+processo: com mais de um worker, cada um conta o seu.
+
+O contrato fica em `docs/openapi.json` e um teste confere que ele bate com o código. Se a
+API mudar de propósito, regrave com `python -m peanutcast.api` e revise o diff.
+
 ## Estrutura
 
 ```
 app.py                     ponto de entrada do Streamlit: entrada, dados e painel
 peanutcast/
+  api.py                   API REST (FastAPI) sobre o mesmo modelo do painel
+  boletim.py               previsão sazonal do CPTEC: o tercil de chuva de dez a fev
   painel.py                monta os dados do painel e registra o componente
   interface/               HTML, CSS e JS do painel, desenhados no navegador
   estilo.py                fontes e ajustes da página do Streamlit em volta do painel
@@ -181,6 +214,7 @@ scripts/
   avaliar_teste.py         avaliação final no teste de 2023 a 2025, com as regras registradas
 tests/                     python -m pytest
 docs/dados.md              fontes, regras de tratamento e dicionário de colunas
+docs/openapi.json          contrato da API REST, conferido pelos testes
 requirements.txt           versões travadas, iguais para os quatro
 credenciais.exemplo.yaml   modelo do arquivo de login
 .streamlit/config.toml     tema escuro e a pasta static/ servida pelo app

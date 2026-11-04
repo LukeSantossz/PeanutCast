@@ -1,0 +1,1380 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "PeanutCast API",
+    "description": "Previsão do rendimento de amendoim nos 24 municípios da Alta Paulista, com o mesmo modelo do painel.\n\nPara as rotas com cadeado, clique em **Authorize** e entre com o usuário e a senha do painel. O token vale 30 minutos.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/saude": {
+      "get": {
+        "tags": [
+          "Sistema"
+        ],
+        "summary": "Estado da API",
+        "operationId": "saude_api_v1_saude_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Saude"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dados ainda não coletados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "example": {
+                  "detail": "Sem dados: rode scripts/coletar.py e scripts/integrar.py."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/token": {
+      "post": {
+        "tags": [
+          "Autenticação"
+        ],
+        "summary": "Login",
+        "description": "Troca usuário e senha do painel por um token JWT de 30 minutos.",
+        "operationId": "entrar_api_v1_auth_token_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_entrar_api_v1_auth_token_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Usuário ou senha incorretos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "example": {
+                  "detail": "Usuário ou senha incorretos."
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Mais de 5 tentativas no minuto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "example": {
+                  "detail": "Muitas tentativas de login. Tente de novo em instantes."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/municipios": {
+      "get": {
+        "tags": [
+          "Municípios"
+        ],
+        "summary": "Municípios e previsão nos três cenários",
+        "operationId": "listar_municipios_api_v1_municipios_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListaMunicipios"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dados ainda não coletados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "example": {
+                  "detail": "Sem dados: rode scripts/coletar.py e scripts/integrar.py."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/municipios/{codigo}": {
+      "get": {
+        "tags": [
+          "Municípios"
+        ],
+        "summary": "Ficha do município",
+        "description": "Previsão no cenário, faixa de erro, decomposição, tercil do CPTEC e histórico.",
+        "operationId": "ficha_api_v1_municipios__codigo__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "codigo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "Código IBGE do município.",
+              "examples": [
+                3500105
+              ],
+              "title": "Codigo"
+            },
+            "description": "Código IBGE do município."
+          },
+          {
+            "name": "cenario",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "Seco",
+                "Normal",
+                "Chuvoso"
+              ],
+              "type": "string",
+              "description": "Cenário de clima.",
+              "default": "Normal",
+              "title": "Cenario"
+            },
+            "description": "Cenário de clima."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ficha"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sem token, ou token vencido ou inválido.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Token inválido ou vencido."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Município desconhecido ou sem dados.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Município 1234567 não é atendido pelo PeanutCast."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dados ainda não coletados.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Sem dados: rode scripts/coletar.py e scripts/integrar.py."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/municipios/{codigo}/simulacao": {
+      "post": {
+        "tags": [
+          "Municípios"
+        ],
+        "summary": "Simular com outro clima",
+        "description": "Previsão com o clima do corpo. Avisa as variáveis fora do que o município já viveu.",
+        "operationId": "simular_api_v1_municipios__codigo__simulacao_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "codigo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "Código IBGE do município.",
+              "examples": [
+                3500105
+              ],
+              "title": "Codigo"
+            },
+            "description": "Código IBGE do município."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Clima"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Simulacao"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sem token, ou token vencido ou inválido.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Token inválido ou vencido."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Município desconhecido ou sem dados.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Município 1234567 não é atendido pelo PeanutCast."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dados ainda não coletados.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Sem dados: rode scripts/coletar.py e scripts/integrar.py."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/previsao-sazonal": {
+      "get": {
+        "tags": [
+          "Clima"
+        ],
+        "summary": "Previsão sazonal do CPTEC",
+        "description": "Tercil de chuva de dez a fev, pela emissão do CPTEC de setembro ou outubro.",
+        "operationId": "previsao_sazonal_api_v1_previsao_sazonal_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisaoSazonal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Sem previsão do CPTEC para a safra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "example": {
+                  "detail": "Sem previsão sazonal do CPTEC para a próxima safra."
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dados ainda não coletados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "example": {
+                  "detail": "Sem dados: rode scripts/coletar.py e scripts/integrar.py."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/usuarios/{usuario}/favoritos": {
+      "get": {
+        "tags": [
+          "Favoritos"
+        ],
+        "summary": "Listar favoritos",
+        "operationId": "listar_favoritos_api_v1_usuarios__usuario__favoritos_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "usuario",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Usuario"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Favoritos"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sem token, ou token vencido ou inválido.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Token inválido ou vencido."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Favoritos de outro usuário.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Só o próprio usuário vê e muda os seus favoritos."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/usuarios/{usuario}/favoritos/{codigo}": {
+      "put": {
+        "tags": [
+          "Favoritos"
+        ],
+        "summary": "Guardar favorito",
+        "description": "Idempotente: guardar de novo não duplica.",
+        "operationId": "guardar_favorito_api_v1_usuarios__usuario__favoritos__codigo__put",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "usuario",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Usuario"
+            }
+          },
+          {
+            "name": "codigo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "Código IBGE do município.",
+              "examples": [
+                3500105
+              ],
+              "title": "Codigo"
+            },
+            "description": "Código IBGE do município."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Favoritos"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sem token, ou token vencido ou inválido.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Token inválido ou vencido."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Favoritos de outro usuário.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Só o próprio usuário vê e muda os seus favoritos."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Município desconhecido ou sem dados.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Município 1234567 não é atendido pelo PeanutCast."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Favoritos"
+        ],
+        "summary": "Tirar favorito",
+        "description": "Idempotente: tirar o que não está guardado não dá erro.",
+        "operationId": "tirar_favorito_api_v1_usuarios__usuario__favoritos__codigo__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "usuario",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Usuario"
+            }
+          },
+          {
+            "name": "codigo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "Código IBGE do município.",
+              "examples": [
+                3500105
+              ],
+              "title": "Codigo"
+            },
+            "description": "Código IBGE do município."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Favoritos"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sem token, ou token vencido ou inválido.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Token inválido ou vencido."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Favoritos de outro usuário.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Só o próprio usuário vê e muda os seus favoritos."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Município desconhecido ou sem dados.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Município 1234567 não é atendido pelo PeanutCast."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_entrar_api_v1_auth_token_post": {
+        "properties": {
+          "grant_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^password$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grant Type"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "title": "Password"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "default": ""
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "format": "password",
+            "title": "Client Secret"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "Body_entrar_api_v1_auth_token_post"
+      },
+      "Clima": {
+        "properties": {
+          "chuva_critica_mm": {
+            "type": "number",
+            "maximum": 3000.0,
+            "minimum": 0.0,
+            "title": "Chuva Critica Mm",
+            "description": "Chuva de dez a fev, em mm."
+          },
+          "temp_max_critica_c": {
+            "type": "number",
+            "maximum": 50.0,
+            "minimum": 0.0,
+            "title": "Temp Max Critica C",
+            "description": "Máxima média de dez a fev, em °C."
+          },
+          "radiacao_critica_mj_m2": {
+            "type": "number",
+            "maximum": 40.0,
+            "minimum": 0.0,
+            "title": "Radiacao Critica Mj M2",
+            "description": "Radiação média, em MJ/m²/dia."
+          },
+          "dias_calor_critica": {
+            "type": "number",
+            "maximum": 91.0,
+            "minimum": 0.0,
+            "title": "Dias Calor Critica",
+            "description": "Dias acima de 35 °C de dez a fev."
+          }
+        },
+        "type": "object",
+        "required": [
+          "chuva_critica_mm",
+          "temp_max_critica_c",
+          "radiacao_critica_mj_m2",
+          "dias_calor_critica"
+        ],
+        "title": "Clima",
+        "description": "O clima de dezembro a fevereiro, a fase crítica do amendoim.",
+        "examples": [
+          {
+            "chuva_critica_mm": 520.0,
+            "dias_calor_critica": 4.0,
+            "radiacao_critica_mj_m2": 21.5,
+            "temp_max_critica_c": 31.8
+          }
+        ]
+      },
+      "Decomposicao": {
+        "properties": {
+          "media_recente": {
+            "type": "number",
+            "title": "Media Recente"
+          },
+          "tendencia": {
+            "type": "number",
+            "title": "Tendencia",
+            "description": "Quanto a safra fica acima da média recente com o clima médio."
+          },
+          "clima": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Clima",
+            "description": "Contribuição de cada variável de clima."
+          }
+        },
+        "type": "object",
+        "required": [
+          "media_recente",
+          "tendencia",
+          "clima"
+        ],
+        "title": "Decomposicao",
+        "description": "Partes que somam a previsão, em kg/ha."
+      },
+      "Erro": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "Erro"
+      },
+      "Favoritos": {
+        "properties": {
+          "usuario": {
+            "type": "string",
+            "title": "Usuario"
+          },
+          "municipios": {
+            "items": {
+              "$ref": "#/components/schemas/MunicipioRef"
+            },
+            "type": "array",
+            "title": "Municipios"
+          }
+        },
+        "type": "object",
+        "required": [
+          "usuario",
+          "municipios"
+        ],
+        "title": "Favoritos"
+      },
+      "Ficha": {
+        "properties": {
+          "codigo": {
+            "type": "integer",
+            "title": "Codigo"
+          },
+          "nome": {
+            "type": "string",
+            "title": "Nome"
+          },
+          "safra": {
+            "type": "integer",
+            "title": "Safra"
+          },
+          "cenario": {
+            "type": "string",
+            "enum": [
+              "Seco",
+              "Normal",
+              "Chuvoso"
+            ],
+            "title": "Cenario"
+          },
+          "clima": {
+            "$ref": "#/components/schemas/Clima"
+          },
+          "previsao": {
+            "type": "number",
+            "title": "Previsao",
+            "description": "Rendimento previsto, em kg/ha."
+          },
+          "faixa": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Faixa",
+            "description": "Previsão menos e mais o erro médio, em kg/ha."
+          },
+          "decomposicao": {
+            "$ref": "#/components/schemas/Decomposicao"
+          },
+          "cptec": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Tercil"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Tercil do CPTEC no município, quando há previsão sazonal."
+          },
+          "historico": {
+            "items": {
+              "$ref": "#/components/schemas/Safra"
+            },
+            "type": "array",
+            "title": "Historico"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo",
+          "nome",
+          "safra",
+          "cenario",
+          "clima",
+          "previsao",
+          "faixa",
+          "decomposicao",
+          "cptec",
+          "historico"
+        ],
+        "title": "Ficha"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ListaMunicipios": {
+        "properties": {
+          "safra": {
+            "type": "integer",
+            "title": "Safra",
+            "description": "Safra prevista.",
+            "examples": [
+              2027
+            ]
+          },
+          "erro_kg_ha": {
+            "type": "number",
+            "title": "Erro Kg Ha",
+            "description": "Erro médio do modelo, a meia largura da faixa."
+          },
+          "municipios": {
+            "items": {
+              "$ref": "#/components/schemas/MunicipioResumo"
+            },
+            "type": "array",
+            "title": "Municipios"
+          }
+        },
+        "type": "object",
+        "required": [
+          "safra",
+          "erro_kg_ha",
+          "municipios"
+        ],
+        "title": "ListaMunicipios"
+      },
+      "MunicipioRef": {
+        "properties": {
+          "codigo": {
+            "type": "integer",
+            "title": "Codigo"
+          },
+          "nome": {
+            "type": "string",
+            "title": "Nome"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo",
+          "nome"
+        ],
+        "title": "MunicipioRef"
+      },
+      "MunicipioResumo": {
+        "properties": {
+          "codigo": {
+            "type": "integer",
+            "title": "Codigo",
+            "description": "Código IBGE de 7 dígitos.",
+            "examples": [
+              3500105
+            ]
+          },
+          "nome": {
+            "type": "string",
+            "title": "Nome",
+            "examples": [
+              "Adamantina"
+            ]
+          },
+          "media_recente": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Recente",
+            "description": "Média das safras recentes, em kg/ha."
+          },
+          "previsao": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "propertyNames": {
+                  "enum": [
+                    "Seco",
+                    "Normal",
+                    "Chuvoso"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previsao",
+            "description": "Rendimento previsto em kg/ha, por cenário; null sem dados."
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo",
+          "nome",
+          "media_recente",
+          "previsao"
+        ],
+        "title": "MunicipioResumo"
+      },
+      "PrevisaoSazonal": {
+        "properties": {
+          "cenario": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Seco",
+                  "Normal",
+                  "Chuvoso"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cenario",
+            "description": "Tercil mais frequente na região."
+          },
+          "safra": {
+            "type": "integer",
+            "title": "Safra"
+          },
+          "janela": {
+            "type": "string",
+            "title": "Janela",
+            "examples": [
+              "dez/2026 a fev/2027"
+            ]
+          },
+          "emissao": {
+            "type": "string",
+            "title": "Emissao",
+            "description": "Mês da emissão do CPTEC usada.",
+            "examples": [
+              "set/2026"
+            ]
+          },
+          "municipios": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Tercil"
+            },
+            "type": "object",
+            "title": "Municipios",
+            "description": "Tercil por código IBGE."
+          }
+        },
+        "type": "object",
+        "required": [
+          "cenario",
+          "safra",
+          "janela",
+          "emissao",
+          "municipios"
+        ],
+        "title": "PrevisaoSazonal"
+      },
+      "Safra": {
+        "properties": {
+          "ano": {
+            "type": "integer",
+            "title": "Ano"
+          },
+          "rendimento_kg_ha": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rendimento Kg Ha"
+          },
+          "area_colhida_ha": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Colhida Ha"
+          },
+          "producao_t": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Producao T"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ano",
+          "rendimento_kg_ha",
+          "area_colhida_ha",
+          "producao_t"
+        ],
+        "title": "Safra"
+      },
+      "Saude": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "examples": [
+              "ok"
+            ]
+          },
+          "versao": {
+            "type": "string",
+            "title": "Versao",
+            "description": "Muda quando algum arquivo de dados muda."
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "versao"
+        ],
+        "title": "Saude"
+      },
+      "Simulacao": {
+        "properties": {
+          "codigo": {
+            "type": "integer",
+            "title": "Codigo"
+          },
+          "nome": {
+            "type": "string",
+            "title": "Nome"
+          },
+          "safra": {
+            "type": "integer",
+            "title": "Safra"
+          },
+          "clima": {
+            "$ref": "#/components/schemas/Clima"
+          },
+          "previsao": {
+            "type": "number",
+            "title": "Previsao"
+          },
+          "faixa": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Faixa"
+          },
+          "decomposicao": {
+            "$ref": "#/components/schemas/Decomposicao"
+          },
+          "extrapolacao": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Extrapolacao",
+            "description": "Variáveis fora do mínimo e do máximo já vistos no município."
+          },
+          "aviso": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aviso"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo",
+          "nome",
+          "safra",
+          "clima",
+          "previsao",
+          "faixa",
+          "decomposicao",
+          "extrapolacao",
+          "aviso"
+        ],
+        "title": "Simulacao"
+      },
+      "Tercil": {
+        "properties": {
+          "cenario": {
+            "type": "string",
+            "enum": [
+              "Seco",
+              "Normal",
+              "Chuvoso"
+            ],
+            "title": "Cenario"
+          },
+          "probabilidade": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Probabilidade",
+            "description": "Probabilidade do tercil; null quando é o normal."
+          }
+        },
+        "type": "object",
+        "required": [
+          "cenario",
+          "probabilidade"
+        ],
+        "title": "Tercil"
+      },
+      "Token": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token",
+            "description": "JWT para o cabeçalho Authorization: Bearer."
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "examples": [
+              "bearer"
+            ]
+          },
+          "expira_em": {
+            "type": "integer",
+            "title": "Expira Em",
+            "description": "Validade do token, em segundos.",
+            "examples": [
+              1800
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "token_type",
+          "expira_em"
+        ],
+        "title": "Token"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2PasswordBearer": {
+        "type": "oauth2",
+        "flows": {
+          "password": {
+            "scopes": {},
+            "tokenUrl": "/api/v1/auth/token"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Sistema",
+      "description": "Estado da API."
+    },
+    {
+      "name": "Autenticação",
+      "description": "Login e token JWT."
+    },
+    {
+      "name": "Municípios",
+      "description": "Previsão, ficha e simulação."
+    },
+    {
+      "name": "Clima",
+      "description": "Previsão sazonal do CPTEC."
+    },
+    {
+      "name": "Favoritos",
+      "description": "Municípios guardados por usuário."
+    }
+  ]
+}
