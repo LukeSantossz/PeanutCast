@@ -9,12 +9,14 @@ de novo muda o horário e o app relê sem precisar reiniciar. O parâmetro não
 começa com "_" de propósito, porque o st.cache_data ignora esses na chave.
 """
 import json
+from datetime import date
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from . import atributos, previsao
-from .caminhos import CLIMA_SAFRAS, DATASET, MALHAS, MODELOS
+from . import atributos, boletim, previsao
+from .caminhos import CLIMA_SAFRAS, CPTEC_SAZONAL, DATASET, MALHAS, MODELOS
 
 COMPARACAO = MODELOS / "comparacao.json"
 TESTE = MODELOS / "teste.json"
@@ -67,6 +69,17 @@ def carregar_teste():
     return _ler_json(TESTE, _modificado_em(TESTE))
 
 
+def carregar_previsao_sazonal(hoje=None):
+    """(grade, origem) da previsão do CPTEC para a safra que não acabou, ou None."""
+    origem = Path(f"{CPTEC_SAZONAL}.origem.json")
+    if not (CPTEC_SAZONAL.exists() and origem.exists()):
+        return None
+    origem = _ler_json(origem, _modificado_em(origem))
+    if not boletim.vigente(origem, hoje or date.today()):
+        return None
+    return boletim.ler_grade(CPTEC_SAZONAL.read_bytes()), origem
+
+
 @st.cache_resource
 def _modelo(modificado_em):
     tabela = atributos.montar(pd.read_csv(DATASET))
@@ -88,7 +101,9 @@ def previsto_por_safra():
 def versao():
     """Muda quando qualquer arquivo lido pelo painel muda. O navegador usa
     para saber se precisa recalcular o que guardou da última vez."""
-    return "-".join(str(_modificado_em(a)) for a in (DATASET, CLIMA_SAFRAS, MALHAS, COMPARACAO, TESTE))
+    arquivos = (DATASET, CLIMA_SAFRAS, MALHAS, COMPARACAO, TESTE, CPTEC_SAZONAL)
+    # A safra alvo entra porque a previsão sazonal vence em março sem nenhum arquivo mudar.
+    return "-".join([*(str(_modificado_em(a)) for a in arquivos), str(boletim.safra_alvo(date.today()))])
 
 
 def historico(dataset, municipio):

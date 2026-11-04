@@ -32,7 +32,7 @@ process.stdout.write(JSON.stringify(pedidos.map(p => fichaHtml(mun[p.nome], p.ce
 # exportarFicha() com o navegador simulado: window.open, URL e o <a> do download.
 EXPORTAR = """
 import { readFileSync } from 'node:fs';
-const { iniciar, fichaHtml, exportarFicha } = await import(process.argv[1]);
+const { iniciar, fichaHtml, exportarFicha, S } = await import(process.argv[1]);
 const { pacote, nome, bloqueado } = JSON.parse(readFileSync(0, 'utf8'));
 iniciar(pacote);
 const m = pacote.municipios.find(x => x.nome === nome), r = { abertos: [], baixados: [], revogados: [], timers: [] };
@@ -43,7 +43,8 @@ globalThis.setTimeout = (f, ms) => { r.timers.push(ms); f(); };
 globalThis.window = { open: (url, alvo) => { r.abertos.push([url, alvo]); return bloqueado ? null : {}; } };
 globalThis.document = { createElement: () => ({ click() { r.baixados.push({ href: this.href, download: this.download }); } }) };
 exportarFicha(m);
-r.tipo = blob.type; r.igual = (await blob.text()) === fichaHtml(m, 'Normal', m.cenarios.Normal);
+// Exporta no cenário em que o painel está (com a previsão do CPTEC, o sugerido).
+r.tipo = blob.type; r.igual = (await blob.text()) === fichaHtml(m, S.cen, m.cenarios[S.cen]);
 process.stdout.write(JSON.stringify(r));
 """
 # vizinha() de painel.js: a safra de clima mais parecida, por pedido {nome, c}.

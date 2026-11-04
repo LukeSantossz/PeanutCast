@@ -17,7 +17,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from . import atributos, dados, previsao
+from . import atributos, boletim, dados, previsao
 from .municipios import MUNICIPIOS
 
 INTERFACE = Path(__file__).parent / "interface"
@@ -141,12 +141,16 @@ def _pacote(versao):
     celula, centros = _celulas(clima), _centros(malhas)
     p = previsao.parametros(modelo)
 
+    sazonal = dados.carregar_previsao_sazonal()
+    prev = None if sazonal is None else boletim.resumo(*sazonal, centros)
+
     comparacao, teste = dados.carregar_comparacao(), dados.carregar_teste()
     metricas = ["mae", "mae_desvio_entre_anos", "rmse", "r2", "ganho_sobre_baseline"]
     return {
         "versao": versao,
         "anos": anos,
-        "proxima": anos[-1] + 1,
+        "proxima": prev["safra"] if prev else anos[-1] + 1,
+        "boletim": prev,
         "erro": erro,
         "areaMin": atributos.AREA_MINIMA_HA,
         "colunas": previsao.COLUNAS,

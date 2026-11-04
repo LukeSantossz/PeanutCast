@@ -71,7 +71,7 @@ agregado não prevê produtividade de amendoim, e isso também é resultado.
 ```bash
 python -m pip install -r requirements.txt
 cp credenciais.exemplo.yaml credenciais.yaml   # depois troque a chave do cookie
-python scripts/coletar.py                      # baixa IBGE, NASA POWER e o contorno dos municípios
+python scripts/coletar.py                      # baixa IBGE, NASA POWER, contornos e a previsão do CPTEC
 python scripts/integrar.py                     # monta dados/tratados/dataset.csv
 python scripts/analisar_dados.py               # opcional: os números das decisões
 streamlit run app.py
@@ -121,7 +121,10 @@ plataformas de previsão (Windy, Ventusky, meteoblue):
   seco, com o ranking ao lado. Passar o mouse mostra quem divide a mesma célula de clima
   da NASA POWER.
 - **Barra de cenário**, embaixo: seco, normal ou chuvoso. Vale para a tela inteira, e as
-  teclas 1, 2 e 3 trocam o cenário.
+  teclas 1, 2 e 3 trocam o cenário. O painel abre no cenário da previsão sazonal do
+  CPTEC para dez a fev, que o `scripts/coletar.py` baixa. A ficha mostra a chance
+  prevista para o município. A previsão só sai em meados de outubro, e sem ela o painel
+  abre no normal.
 - **Ficha do município**, ao clicar: a previsão com piso e teto, os três cenários, a
   conta que leva da média das safras à previsão (média + tendência + cada variável de
   clima), os controles para ajustar o clima e o histórico. Dali dá para guardar o
@@ -129,7 +132,7 @@ plataformas de previsão (Windy, Ventusky, meteoblue):
   pronta para imprimir ou salvar em PDF, com o cenário e o ajuste de clima da tela. Se o
   ajuste monta uma combinação de clima que o município nunca teve, a ficha avisa que ali
   o modelo extrapola.
-- **Boletim das safras**: um meteograma de 2000 a 2026, com rendimento, o cenário de cada
+- **Boletim das safras**: um meteograma de 2000 até a safra prevista, com rendimento, o cenário de cada
   ano, chuva, calor, radiação, área colhida e o que o modelo teria previsto sem ver a
   safra.
 - **Comparar**: até 4 municípios no mesmo cenário, com as faixas de erro lado a lado.

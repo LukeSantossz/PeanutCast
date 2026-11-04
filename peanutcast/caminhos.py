@@ -18,6 +18,7 @@ IBGE_PAM = DADOS_BRUTOS / "ibge_pam.csv"            # SIDRA 1612, formato longo
 CENTROIDES = DADOS_BRUTOS / "centroides.csv"        # latitude e longitude por município
 MALHAS = DADOS_BRUTOS / "municipios.geojson"        # contorno dos municípios, para o mapa
 NASA_POWER = DADOS_BRUTOS / "nasa_power"            # um CSV diário por município
+CPTEC_SAZONAL = DADOS_BRUTOS / "cptec_sazonal.dat"  # previsão de dez a fev, tercil de chuva
 DATASET = DADOS_TRATADOS / "dataset.csv"            # produção + clima, uma linha por município e ano
 CLIMA_SAFRAS = DADOS_TRATADOS / "clima_safras.csv"  # clima de todas as safras, com ou sem amendoim
 

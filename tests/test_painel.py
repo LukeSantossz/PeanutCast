@@ -74,3 +74,30 @@ def test_municipio_sem_safra_valida_fica_sem_previsao():
     assert m["anosMedia"] == []
     assert m["prev"] == {}
     json.dumps(m, allow_nan=False)
+
+
+def test_safra_do_rotulo_segue_a_previsao_sazonal(pacote):
+    if pacote["boletim"] is None:
+        assert pacote["proxima"] == pacote["anos"][-1] + 1
+    else:
+        assert pacote["proxima"] == pacote["boletim"]["safra"]
+        assert pacote["boletim"]["cenario"] in previsao.CENARIOS
+
+
+def test_pacote_com_e_sem_previsao_sazonal(pacote, monkeypatch):
+    import numpy as np
+
+    monkeypatch.setattr(painel.dados, "carregar_previsao_sazonal", lambda hoje=None: None)
+    p = painel._pacote("teste-sem-previsao")
+    assert p["boletim"] is None
+    assert p["proxima"] == p["anos"][-1] + 1
+
+    grade = np.full((192, 384), -0.5)
+    origem = {"emissao": [2026, 9], "figura": 2, "safra": 2027}
+    monkeypatch.setattr(painel.dados, "carregar_previsao_sazonal", lambda hoje=None: (grade, origem))
+    p = painel._pacote("teste-com-previsao")
+    assert p["proxima"] == 2027
+    assert p["boletim"]["cenario"] == "Seco"
+    assert p["boletim"]["janela"] == "dez/2026 a fev/2027"
+    assert len(p["boletim"]["municipios"]) == len(MUNICIPIOS)
+    json.dumps(p, allow_nan=False)

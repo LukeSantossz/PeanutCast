@@ -1,7 +1,7 @@
-"""Acesso às três APIs de onde saem os dados do PeanutCast.
+"""Acesso às fontes de onde saem os dados do PeanutCast.
 
 Cada função baixa e devolve um DataFrame no formato mais próximo possível do
-que a fonte entrega. Tratamento não entra aqui: o que sai destas funções é
+que a fonte entrega (a grade do CPTEC sai em bytes, como veio). Tratamento não entra aqui: o que sai destas funções é
 gravado em dados/brutos/ como veio, e quem limpa é o integrar.py. Assim, um
 erro de tratamento se corrige rodando a integração de novo, sem baixar nada.
 
@@ -9,6 +9,7 @@ Fontes:
   IBGE/SIDRA, tabela 1612 (PAM)   produção de amendoim por município e ano
   IBGE, API de malhas             centroide e contorno de cada município
   NASA POWER, API diária          clima diário no centroide
+  CPTEC, previsão sazonal         tercil de chuva previsto para dez a fev
 """
 import time
 
@@ -135,3 +136,18 @@ def baixar_clima_diario(latitude, longitude):
     clima.index = pd.to_datetime(clima.index, format="%Y%m%d")
     clima.index.name = "data"
     return clima
+
+
+def baixar_cptec(url, tentativas=3):
+    """Grade da previsão sazonal do CPTEC como veio, ou None se ainda não saiu (404)."""
+    for tentativa in range(1, tentativas + 1):
+        try:
+            resposta = requests.get(url, timeout=120)
+            if resposta.status_code == 404:
+                return None
+            resposta.raise_for_status()
+            return resposta.content
+        except requests.RequestException:
+            if tentativa == tentativas:
+                raise
+            time.sleep(5 * tentativa)

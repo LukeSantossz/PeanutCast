@@ -178,6 +178,11 @@ svg text{font-family:var(--mono);font-size:10px;fill:var(--txt-3)}
 .trilha button span{font-family:var(--mono);font-size:10.5px;color:var(--txt-3)}
 .trilha button[aria-pressed=true] b,.trilha button[aria-pressed=true] span{color:var(--solo-0)}
 .trilha button[aria-pressed=true] b i{background:var(--solo-0)!important}
+.trilha button.sug::after{content:'';position:absolute;left:12px;right:12px;bottom:2px;border-bottom:2px dotted var(--txt-2)}
+.trilha button.sug[aria-pressed=true]::after{border-color:var(--solo-0)}
+.base .cptec{font-size:11.5px;color:var(--txt-3);margin-top:5px}
+.base .cptec b{color:var(--txt-2);font-weight:600}
+.cptec-f{margin-top:8px}
 .trilha.inativa{opacity:.5}
 .trilha.inativa .ind{opacity:0}
 .camadas{display:flex;gap:4px}
@@ -228,7 +233,7 @@ details summary{cursor:pointer;color:var(--txt-2)}
   .mapa{height:58vh;flex-shrink:0;order:2}
   .dir{order:3;border-left:0}.esq{order:4;border-right:0;max-height:none}.lista{overflow:visible}
   .base{position:fixed;left:0;right:0;bottom:0;gap:10px;padding:8px 12px}
-  .base .modelo,.safra,.base .rot{display:none}
+  .base .modelo,.safra,.base .rot,.base .cptec{display:none}
   .base>div{flex:1 1 100%}
   .trilha{grid-template-columns:repeat(3,1fr);width:100%}.trilha .ind{width:calc((100% - 6px)/3)}
   .camadas{width:100%}.camadas .btn{flex:1;white-space:nowrap;padding:6px 8px;font-size:12.5px}

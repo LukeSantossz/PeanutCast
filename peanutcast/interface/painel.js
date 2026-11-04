@@ -102,14 +102,29 @@ function iniciar(dados) {
     LAT = [Math.min(...pts.map(p => p[1])), Math.max(...pts.map(p => p[1]))];
     KX = Math.cos((LAT[0] + LAT[1]) / 2 * Math.PI / 180);
   }
+  // Abre no cenário da previsão sazonal; depois de uma troca manual, vale a troca.
+  if (!S.escolheu) S.cen = sugerido();
   for (const m of COM) for (const c of CEN)
     if (Math.abs(prever(m, m.cenarios[c]) - m.prev[c]) > 0.01) console.error('[PeanutCast] previsão no navegador diverge do Python', m.nome, c);
+}
+const sugerido = () => (D.boletim && D.boletim.cenario) || 'Normal';
+const DIZ = { Seco: 'abaixo da normal', Chuvoso: 'acima da normal' };
+function notaRegiao() {
+  const b = D.boletim;
+  if (!b || !b.cenario) return 'Previsão sazonal do CPTEC para dez a fev: sai em meados de outubro.';
+  return `Previsão sazonal do CPTEC (emissão ${b.emissao}): <b>${b.cenario.toLowerCase()}</b> para ${b.janela}`;
+}
+function notaCptec(m) {   // o tercil da célula do município, ou '' sem previsão
+  const t = D.boletim && D.boletim.municipios[m.codigo];
+  if (!t) return '';
+  const o = t.prob == null ? 'chuva perto da normal' : `${Math.round(t.prob * 100)}% de chance de chuva ${DIZ[t.cen]}`;
+  return `Previsão sazonal do CPTEC para ${D.boletim.janela}: ${o}.`;
 }
 const corRend = v => R_REND((Math.min(NDEG - 1, Math.floor((v - E0) / PASSO)) + 0.5) / NDEG);
 const corPerda = v => R_SECO(1 - (Math.min(NP - 1, Math.floor((v - P0) / 25)) + 0.5) / NP);
 
 /* ---------- estado da tela ---------- */
-const S = { vista: 'mapa', sel: null, cen: 'Normal', aj: null, camada: 'esperado', fav: new Set(), comp: [], quente: null, busca: '' };
+const S = { vista: 'mapa', sel: null, cen: 'Normal', aj: null, camada: 'esperado', fav: new Set(), comp: [], quente: null, busca: '', escolheu: false };
 let ROOT = null, AVISAR = () => {}, VERSAO = null, PROJ = null;
 // Favoritos que a tela já mudou e o servidor ainda não devolveu: nome → guardado.
 // O servidor responde um ciclo atrasado, então a lista dele não pode apagar o
@@ -191,6 +206,7 @@ const MOLDE = `
     <div>
       <div class="rot" style="margin-bottom:5px">Cenário climático · chuva de dez a fev, mediana da região</div>
       <div class="trilha" data-trilha></div>
+      <div class="cptec" data-cptec></div>
     </div>
     <div>
       <div class="rot" style="margin-bottom:5px">O mapa mostra</div>
@@ -210,7 +226,7 @@ function montar(raiz) {
   $$('.topo nav button').forEach(b => b.onclick = () => irPara(b.dataset.vista));
   // Quem entrar depois na mesma aba não herda o município aberto nem a comparação.
   $('[data-sair]').onclick = () => {
-    Object.assign(S, { vista: 'mapa', sel: null, cen: 'Normal', aj: null, camada: 'esperado', comp: [], busca: '' });
+    Object.assign(S, { vista: 'mapa', sel: null, cen: sugerido(), aj: null, camada: 'esperado', comp: [], busca: '', escolheu: false });
     PEND.clear(); AVISAR('sair', true);
   };
   // O mouseleave de cada município não basta: o município clicado é movido no
@@ -233,8 +249,9 @@ function base() {
   if (t.dataset.versao !== VERSAO) {
     t.dataset.versao = VERSAO;
     const mm = c => mediana(COM.map(m => m.cenarios[c].chuva_critica_mm));
-    t.innerHTML = `<span class="ind"></span>` + CEN.map(c => `<button data-cen="${c}"><b><i style="background:${COR[c]}"></i>${c}</b><span>${fmt(mm(c))} mm</span></button>`).join('');
+    t.innerHTML = `<span class="ind"></span>` + CEN.map(c => `<button data-cen="${c}"${c === (D.boletim && D.boletim.cenario) ? ' class="sug" title="Cenário da previsão sazonal do CPTEC"' : ''}><b><i style="background:${COR[c]}"></i>${c}</b><span>${fmt(mm(c))} mm</span></button>`).join('');
     t.querySelectorAll('button').forEach(b => b.onclick = () => mudarCenario(b.dataset.cen));
+    $('[data-cptec]').innerHTML = notaRegiao();
   }
   // A perda no ano seco é sempre seco menos normal: o cenário escolhido não muda
   // esse mapa, então a trilha apaga em vez de parecer que vale para ele.
@@ -252,7 +269,7 @@ function base() {
   });
   $('[data-modelo]').innerHTML = `Modelo <b>${esc(M.nome)}</b>, clima de dez a fev<br>Erro típico <b>± ${fmt(ERRO)} kg/ha</b> · simula cenário, não prevê o tempo`;
 }
-function mudarCenario(c) { S.cen = c; S.aj = null; S.camada = 'esperado'; render(); }
+function mudarCenario(c) { S.cen = c; S.escolheu = true; S.aj = null; S.camada = 'esperado'; render(); }
 
 /* =====================================================================
    LISTA LATERAL
@@ -449,6 +466,7 @@ function ficha(el, m) {
       <div class="sec">
         <h3><span class="rot">Nos três cenários</span></h3>
         <div class="cen-chips" data-f-cen></div>
+        <p class="nota cptec-f" data-f-cptec hidden></p>
         <div class="stats" data-f-stats style="margin-top:10px"></div>
       </div>
       <div class="sec">
@@ -503,6 +521,7 @@ function fichaViva(m) {
   q('[data-f-cen]').innerHTML = CEN.map(k => { const x = k === S.cen ? v : m.prev[k], cr = corRend(x);
     return `<button class="cen-chip" data-cen="${k}" aria-pressed="${k === S.cen}" style="background:${cr};color:${tinta(cr)}"><span class="k"><i style="background:${COR[k]}"></i>${k}</span><div class="x">${fmt(x)}</div></button>`; }).join('');
   q('[data-f-cen]').querySelectorAll('button').forEach(b => b.onclick = () => mudarCenario(b.dataset.cen));
+  const nc = notaCptec(m), pc = q('[data-f-cptec]'); pc.textContent = nc; pc.hidden = !nc;
   const ord = COM.map(x => ({ n: x.nome, v: prever(x, clima(x)) })).sort((a, b) => b.v - a.v);
   const perdas = [...COM].sort((a, b) => (b.prev.Seco - b.prev.Normal) - (a.prev.Seco - a.prev.Normal));
   q('[data-f-stats]').innerHTML =
@@ -782,7 +801,7 @@ function ouvirJanela() {
 }
 
 // O Streamlit só usa o default; estes servem a tests/test_ficha.py, que roda a ficha no Node.
-export { iniciar, fichaHtml, exportarFicha, vizinha };
+export { iniciar, fichaHtml, exportarFicha, vizinha, S, mudarCenario, notaCptec, notaRegiao, ordem };
 
 export default function (component) {
   const { data, parentElement, setTriggerValue } = component;
