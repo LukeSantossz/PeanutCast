@@ -16,6 +16,9 @@ cenário usa a mediana das variáveis nos anos do seu terço. Assim o cenário
 seco carrega junto o calor e a radiação que os anos secos tiveram de fato, em
 vez de uma combinação que nunca aconteceu.
 """
+import itertools
+import math
+
 import numpy as np
 import pandas as pd
 
@@ -120,15 +123,57 @@ def decompor(modelo, media_recente, clima):
 
     média das safras recentes + tendência (o intercepto: quanto a safra fica
     acima da média recente com o clima médio do treino) + a contribuição de
-    cada variável de clima, medida contra o clima médio do treino. Num modelo
-    linear isso é exato, e é o mesmo que o SHAP daria.
+    cada variável de clima, medida contra o clima médio do treino, que volta
+    em `referencia`. Num modelo linear isso é exato e é o SHAP da previsão,
+    com o treino como fundo: tests/test_previsao.py confere contra shapley().
     """
     p = parametros(modelo)
     contribuicoes = {
         coluna: coef * (float(clima[coluna]) - media) / desvio
         for coluna, coef, media, desvio in zip(COLUNAS, p["coef"], p["media"], p["desvio"])
     }
-    return {"media": float(media_recente), "tendencia": p["intercepto"], "clima": contribuicoes}
+    return {
+        "media": float(media_recente),
+        "tendencia": p["intercepto"],
+        "clima": contribuicoes,
+        "referencia": dict(zip(COLUNAS, p["media"])),
+    }
+
+
+def shapley(modelo, fundo, clima):
+    """Valores de Shapley exatos do desvio previsto, por enumeração das coalizões.
+
+    É o SHAP intervencional: o valor de uma coalizão S é a previsão média nas
+    linhas de `fundo`, com as variáveis de S trocadas pelo valor de `clima`. Com
+    quatro variáveis são 16 coalizões, e a conta é exata, sem amostragem e sem
+    a biblioteca shap. Não supõe modelo linear: é a régua de decompor(), que
+    num modelo linear com o treino de fundo tem de dar o mesmo.
+
+    Devolve (valor base, {coluna: valor}); o valor base é a previsão média no
+    fundo, e base + Σ valores é a previsão para `clima`.
+    """
+    alvo = pd.Series(clima)[COLUNAS].astype(float)
+    linhas = fundo[COLUNAS].astype(float).reset_index(drop=True)
+    n = len(COLUNAS)
+
+    def valor(coalizao):
+        x = linhas.copy()
+        for coluna in coalizao:
+            x[coluna] = alvo[coluna]
+        return float(modelo.predict(x).mean())
+
+    v = {s: valor(s) for k in range(n + 1) for s in itertools.combinations(COLUNAS, k)}
+    valores = {}
+    for coluna in COLUNAS:
+        outras = [c for c in COLUNAS if c != coluna]
+        total = 0.0
+        for k in range(n):
+            peso = math.factorial(k) * math.factorial(n - k - 1) / math.factorial(n)
+            for s in itertools.combinations(outras, k):
+                com = tuple(c for c in COLUNAS if c in s or c == coluna)
+                total += peso * (v[com] - v[s])
+        valores[coluna] = total
+    return v[()], valores
 
 
 def fatores(modelo):

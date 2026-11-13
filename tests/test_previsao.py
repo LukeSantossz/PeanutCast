@@ -75,6 +75,42 @@ def test_decomposicao_soma_a_previsao():
     assert total == pytest.approx(previsao.prever(modelo, 3000.0, clima))
 
 
+def test_shapley_soma_a_previsao_mesmo_sem_modelo_linear():
+    # Eficiência do Shapley: valor base + Σ valores = previsão. Vale para qualquer
+    # modelo, e é o que prova que a enumeração das coalizões está certa.
+    from sklearn.ensemble import RandomForestRegressor
+
+    tabela = tabela_sintetica()
+    y = tabela[previsao.atributos.ALVO] - tabela["rend_medio_munic"]
+    floresta = RandomForestRegressor(n_estimators=30, random_state=0).fit(tabela[previsao.COLUNAS], y)
+    fundo = tabela.iloc[:15]
+    for _, linha in tabela.iloc[15:20].iterrows():
+        base, valores = previsao.shapley(floresta, fundo, linha)
+        assert set(valores) == set(previsao.COLUNAS)
+        esperado = float(floresta.predict(pd.DataFrame([linha])[previsao.COLUNAS])[0])
+        assert base + sum(valores.values()) == pytest.approx(esperado)
+        assert base == pytest.approx(float(floresta.predict(fundo[previsao.COLUNAS]).mean()))
+
+
+def test_decomposicao_e_o_shap_do_modelo_do_painel():
+    tabela = tabela_sintetica()
+    modelo = previsao.treinar(tabela)
+    for _, linha in tabela.iloc[::5].iterrows():
+        partes = previsao.decompor(modelo, 3000.0, linha)
+        base, valores = previsao.shapley(modelo, tabela, linha)
+        assert base == pytest.approx(partes["tendencia"])
+        for coluna in previsao.COLUNAS:
+            assert valores[coluna] == pytest.approx(partes["clima"][coluna], abs=1e-6)
+
+
+def test_decomposicao_traz_o_clima_de_referencia():
+    tabela = tabela_sintetica()
+    partes = previsao.decompor(previsao.treinar(tabela), 3000.0, tabela.iloc[0])
+    assert list(partes["referencia"]) == previsao.COLUNAS
+    for coluna in previsao.COLUNAS:
+        assert partes["referencia"][coluna] == pytest.approx(tabela[coluna].mean())
+
+
 def test_parametros_refazem_a_conta_do_modelo():
     # É a conta que o navegador faz enquanto o usuário arrasta um controle.
     # Se o modelo do painel deixar de ser linear, este teste avisa.
