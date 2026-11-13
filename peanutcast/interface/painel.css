@@ -91,6 +91,13 @@ code{font-family:var(--mono);font-size:.92em;color:var(--txt);background:var(--s
 .escala-km i{display:block;height:5px;border:1px solid var(--txt-3);border-top:0;margin-bottom:3px}
 .dica{position:absolute;pointer-events:none;background:rgba(28,22,17,.96);border:1px solid var(--linha-2);border-radius:8px;padding:9px 11px;min-width:180px;transform:translate(14px,-50%);box-shadow:0 6px 24px rgba(0,0,0,.4);z-index:3}
 .dica h4{margin:0 0 4px;font-size:14px}
+/* Balão das dicas dos gráficos: um só, preso à janela, acima de tudo. */
+.tt{position:fixed;z-index:50;pointer-events:none;max-width:290px;background:rgba(28,22,17,.97);border:1px solid var(--linha-2);border-radius:8px;padding:8px 11px;box-shadow:0 6px 24px rgba(0,0,0,.45);font-size:12.5px;line-height:1.45;color:var(--txt-2)}
+.tt h4{margin:0 0 3px;font-size:13.5px;font-weight:600;color:var(--txt)}
+.tt b{font-family:var(--mono);font-weight:500;color:var(--txt)}
+.tt i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.hov{fill:transparent}
+.hov:hover{fill:rgba(242,234,221,.06)}
 .dica .v{font-family:var(--mono);font-size:13px}
 .dica .cs{display:flex;gap:4px;margin-top:6px}
 .dica .cs span{font-family:var(--mono);font-size:10.5px;padding:1px 5px;border-radius:3px}

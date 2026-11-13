@@ -141,6 +141,38 @@ const PEND = new Map();
 const $ = s => ROOT.querySelector(s), $$ = s => [...ROOT.querySelectorAll(s)];
 const clima = m => S.aj && S.aj.mun === m.nome && S.aj.cen === S.cen ? S.aj.v : m.cenarios[S.cen];
 const ajustado = m => !!(S.aj && S.aj.mun === m.nome && S.aj.cen === S.cen);
+
+/* Dicas dos gráficos. Todo elemento com data-tt mostra o conteúdo num balão ao
+   passar o mouse; é um balão só para o painel, ligado uma vez em montar(). No
+   HTML montado como texto o conteúdo entra escapado (balao); quem já tem o
+   elemento na mão grava direto em dataset.tt (conteudo). O título e as linhas
+   já vêm em HTML: nome de município entra com esc(). */
+const conteudo = (titulo, ...linhas) => `<h4>${titulo}</h4>` + linhas.filter(Boolean).map(l => `<div>${l}</div>`).join('');
+const balao = (titulo, ...linhas) => ` data-tt="${esc(conteudo(titulo, ...linhas))}"`;
+const cenTxt = m => `cenário ${S.cen.toLowerCase()}${ajustado(m) ? ' ajustado' : ''}`;
+
+function ligarDicas(el) {
+  const b = document.createElement('div');
+  b.className = 'tt'; b.hidden = true; b.setAttribute('role', 'tooltip'); el.appendChild(b);
+  let ultimo = null;
+  const esconder = () => { ultimo = null; b.hidden = true; };
+  el.addEventListener('pointermove', e => {
+    if (e.pointerType === 'touch') return;
+    const alvo = e.target.closest ? e.target.closest('[data-tt]') : null;
+    if (!alvo) { if (!b.hidden) esconder(); return; }
+    // Compara o texto, não o elemento: a ficha reescreve a dica no mesmo
+    // elemento enquanto um controle de clima desliza.
+    if (alvo.dataset.tt !== ultimo) { ultimo = alvo.dataset.tt; b.innerHTML = ultimo; }
+    b.hidden = false;
+    const w = b.offsetWidth, h = b.offsetHeight, folga = 8;
+    let x = e.clientX + 14, y = e.clientY + 16;
+    if (x + w > innerWidth - folga) x = e.clientX - w - 14;
+    if (y + h > innerHeight - folga) y = e.clientY - h - 12;
+    b.style.left = Math.max(folga, x) + 'px'; b.style.top = Math.max(folga, y) + 'px';
+  });
+  el.addEventListener('pointerleave', esconder);
+  el.addEventListener('scroll', esconder, true);
+}
 const valorMapa = m => S.camada === 'esperado' ? prever(m, clima(m)) : m.prev.Seco - m.prev.Normal;
 const corMapa = m => !temPrev(m) ? '#2B221B' : S.camada === 'esperado' ? corRend(valorMapa(m)) : corPerda(valorMapa(m));
 const ordem = () => [...COM].sort((a, b) => valorMapa(b) - valorMapa(a));
@@ -231,6 +263,7 @@ function montar(raiz) {
   if (el) return el;
   el = document.createElement('div'); el.className = 'pc app'; el.innerHTML = MOLDE; raiz.appendChild(el);
   ROOT = el;
+  ligarDicas(el);
   $$('.topo nav button').forEach(b => b.onclick = () => irPara(b.dataset.vista));
   // Quem entrar depois na mesma aba não herda o município aberto nem a comparação.
   $('[data-sair]').onclick = () => {
@@ -373,7 +406,8 @@ function legenda() {
   const esp = S.camada === 'esperado', n = esp ? NDEG : NP, a = esp ? E0 : P0, p = esp ? PASSO : 25;
   const cor = i => esp ? corRend(a + i * p + 1) : corPerda(a + i * p + 1), txt = v => esp ? fmt(v) : sinal(v), pulo = n > 8 ? 2 : 1;
   el.innerHTML = `<span class="rot">kg/ha</span><div class="degraus">` +
-    Array.from({ length: n }, (_, i) => `<i style="background:${cor(n - 1 - i)}"></i>`).join('') +
+    Array.from({ length: n }, (_, i) => { const lo = a + (n - 1 - i) * p;
+      return `<i style="background:${cor(n - 1 - i)}"${balao(`${txt(lo)} a ${txt(lo + p)} kg/ha`, esp ? 'rendimento esperado no cenário da tela' : 'quanto a previsão cai do normal para o seco')}></i>`; }).join('') +
     Array.from({ length: n + 1 }, (_, k) => k % pulo ? '' : `<span style="bottom:${k * 15}px">${txt(a + k * p)}</span>`).join('') + `</div>`;
 }
 function bandeja() {
@@ -423,9 +457,10 @@ function regiaoResumo(el) {
   const pil = []; let g = '';
   for (let k = lo; k <= hi; k += 500) g += `<line x1="${X(k)}" x2="${X(k)}" y1="6" y2="${H - 20}" stroke="rgba(242,234,221,.07)"/><text x="${X(k)}" y="${H - 6}" text-anchor="middle">${fmt(k)}</text>`;
   [...vs].reverse().forEach(({ m, v }) => { const x = X(v); let nivel = 0; while (pil.some(p => p.n === nivel && Math.abs(p.x - x) < 11)) nivel++; pil.push({ x, n: nivel });
-    g += `<circle class="pt-reg" data-n="${esc(m.nome)}" cx="${x}" cy="${H - 30 - nivel * 11}" r="5" fill="${corRend(v)}" stroke="#1C1611" stroke-width="1.2" style="cursor:pointer"><title>${esc(m.nome)}: ${fmt(v)} kg/ha</title></circle>`; });
+    g += `<circle class="pt-reg" data-n="${esc(m.nome)}" cx="${x}" cy="${H - 30 - nivel * 11}" r="5" fill="${corRend(v)}" stroke="#1C1611" stroke-width="1.2" style="cursor:pointer"` +
+      `${balao(esc(m.nome), `<b>${fmt(v)} kg/ha</b> · ${vs.findIndex(o => o.m === m) + 1}º de ${vs.length}`, `faixa ${fmt(v - ERRO)} a ${fmt(v + ERRO)} · ${cenTxt(m)}`, 'clique para abrir a ficha')}/>`; });
   const larg = X(lo + 2 * ERRO) - X(lo);
-  g += `<g transform="translate(${X(lo) + 4},10)"><line x1="0" x2="${larg}" y1="0" y2="0" stroke="#BDAC97"/><line x1="0" x2="0" y1="-3" y2="3" stroke="#BDAC97"/><line x1="${larg}" x2="${larg}" y1="-3" y2="3" stroke="#BDAC97"/><text x="${larg / 2}" y="13" text-anchor="middle" style="fill:#BDAC97">largura da faixa de erro</text></g>`;
+  g += `<g transform="translate(${X(lo) + 4},10)"${balao('Largura da faixa de erro', `± ${fmt(ERRO)} kg/ha: o erro médio do modelo em safras que ele não tinha visto`, 'dois municípios mais próximos que isso empatam pelo número')}><rect x="-4" y="-8" width="${larg + 8}" height="26" fill="transparent"/><line x1="0" x2="${larg}" y1="0" y2="0" stroke="#BDAC97"/><line x1="0" x2="0" y1="-3" y2="3" stroke="#BDAC97"/><line x1="${larg}" x2="${larg}" y1="-3" y2="3" stroke="#BDAC97"/><text x="${larg / 2}" y="13" text-anchor="middle" style="fill:#BDAC97">largura da faixa de erro</text></g>`;
   const perda = m => sinal(m.prev.Seco - m.prev.Normal);
   el.innerHTML = `
     <div class="sec">
@@ -524,28 +559,43 @@ function fichaViva(m) {
   r.querySelector('.fx').style.left = clamp(X(v - ERRO), 0, 100) + '%'; r.querySelector('.fx').style.width = (clamp(X(v + ERRO), 0, 100) - clamp(X(v - ERRO), 0, 100)) + '%';
   r.querySelector('.ag').style.left = clamp(X(v), 0, 100) + '%';
   q('[data-f-lo]').textContent = fmt(v - ERRO); q('[data-f-hi]').textContent = fmt(v + ERRO);
+  r.dataset.tt = conteudo(`Previsão ${fmt(v)} kg/ha`, `piso <b>${fmt(v - ERRO)}</b> · teto <b>${fmt(v + ERRO)}</b> · ${cenTxt(m)}`,
+    `a faixa é ± ${fmt(ERRO)} kg/ha, o erro médio do modelo em safras que ele não tinha visto. Não é intervalo de confiança.`);
   const al = alerta(m, c), pa = q('[data-f-alerta]'); pa.innerHTML = al; pa.hidden = !al;
 
   q('[data-f-cen]').innerHTML = CEN.map(k => { const x = k === S.cen ? v : m.prev[k], cr = corRend(x);
-    return `<button class="cen-chip" data-cen="${k}" aria-pressed="${k === S.cen}" style="background:${cr};color:${tinta(cr)}"><span class="k"><i style="background:${COR[k]}"></i>${k}</span><div class="x">${fmt(x)}</div></button>`; }).join('');
+    const dk = balao(`Cenário ${k.toLowerCase()}${k === S.cen && ajustado(m) ? ' ajustado' : ''}`,
+      `<b>${fmt(x)} kg/ha</b>${k === 'Normal' ? '' : ` · ${sinal(x - m.prev.Normal)} sobre o normal`}`,
+      `chuva de dez a fev: ${fmt((k === S.cen ? c : m.cenarios[k]).chuva_critica_mm)} mm`,
+      k === S.cen ? 'é o cenário da tela' : 'clique para simular este cenário');
+    return `<button class="cen-chip" data-cen="${k}" aria-pressed="${k === S.cen}" style="background:${cr};color:${tinta(cr)}"${dk}><span class="k"><i style="background:${COR[k]}"></i>${k}</span><div class="x">${fmt(x)}</div></button>`; }).join('');
   q('[data-f-cen]').querySelectorAll('button').forEach(b => b.onclick = () => mudarCenario(b.dataset.cen));
   const nc = notaCptec(m), pc = q('[data-f-cptec]'); pc.textContent = nc; pc.hidden = !nc;
   const ord = COM.map(x => ({ n: x.nome, v: prever(x, clima(x)) })).sort((a, b) => b.v - a.v);
   const perdas = [...COM].sort((a, b) => (b.prev.Seco - b.prev.Normal) - (a.prev.Seco - a.prev.Normal));
+  const posicao = ord.findIndex(o => o.n === m.nome) + 1;
   q('[data-f-stats]').innerHTML =
-    `<div><span class="rot">Posição</span><div class="x">${ord.findIndex(o => o.n === m.nome) + 1}º</div><small>de ${ord.length}</small></div>` +
-    `<div><span class="rot">Ano seco</span><div class="x">${sinal(m.prev.Seco - m.prev.Normal)}</div><small>${perdas.indexOf(m) + 1}º menor perda</small></div>` +
-    `<div><span class="rot">Erro aqui</span><div class="x">${m.wf.length ? '±' + fmt(erroLocal(m)) : '—'}</div><small>${m.wf.length} safras</small></div>`;
+    `<div${balao('Posição no ranking', `${posicao}º entre os ${ord.length} municípios com previsão, no ${cenTxt(m)}`)}><span class="rot">Posição</span><div class="x">${posicao}º</div><small>de ${ord.length}</small></div>` +
+    `<div${balao('Perda no ano seco', `do cenário normal para o seco a previsão muda <b>${sinal(m.prev.Seco - m.prev.Normal)} kg/ha</b>`, `${perdas.indexOf(m) + 1}º menor perda entre ${perdas.length}; quem divide a célula de clima perde igual`)}><span class="rot">Ano seco</span><div class="x">${sinal(m.prev.Seco - m.prev.Normal)}</div><small>${perdas.indexOf(m) + 1}º menor perda</small></div>` +
+    `<div${balao('Erro do modelo aqui', m.wf.length ? `errou em média <b>${fmt(erroLocal(m))} kg/ha</b> nas ${m.wf.length} safras de ${esc(m.nome)} que previu sem ver` : 'sem safras para medir', `na região toda o erro médio é ± ${fmt(ERRO)}`)}><span class="rot">Erro aqui</span><div class="x">${m.wf.length ? '±' + fmt(erroLocal(m)) : '—'}</div><small>${m.wf.length} safras</small></div>`;
 
-  const cl = soma(cs), passos = [[`Média ${m.anosMedia[0]}–${m.anosMedia.at(-1)}`, m.media, m.media, fmt(m.media), '#8B7A69'],
-    ['Tendência de alta', m.media, m.media + M.b, sinal(M.b), '#BDAC97'],
-    [NOME_EFEITO_CLIMA + (ajustado(m) ? '*' : ''), m.media + M.b, v, sinal(cl), cl >= 0 ? '#86B06F' : '#D45A43']];
+  const cl = soma(cs), safrasMedia = m.anosMedia.map(a => `${a}: <b>${fmt((m.hist[ANOS.indexOf(a)] || {}).r)}</b>`).join(' · ');
+  const passos = [[`Média ${m.anosMedia[0]}–${m.anosMedia.at(-1)}`, m.media, m.media, fmt(m.media), '#8B7A69',
+      [`o ponto de partida: <b>${fmt(m.media)} kg/ha</b>, a média das três últimas safras`, safrasMedia]],
+    ['Tendência de alta', m.media, m.media + M.b, sinal(M.b), '#BDAC97',
+      [`<b>${sinal(M.b)} kg/ha</b>: quanto a safra fica acima da média recente com o clima médio do treino`, 'é a alta de produtividade que não vem do clima']],
+    [NOME_EFEITO_CLIMA + (ajustado(m) ? '*' : ''), m.media + M.b, v, sinal(cl), cl >= 0 ? '#86B06F' : '#D45A43',
+      [`<b>${sinal(cl)} kg/ha</b>: a soma dos valores SHAP das quatro variáveis abaixo`, `${cenTxt(m)}; passe o mouse em cada variável para ver o efeito dela`]]];
   const todos = passos.flatMap(p => [p[1], p[2]]), XP = lin(Math.min(...todos) - 40, Math.max(...todos) + 40, 0, 100);
-  q('[data-f-porque]').innerHTML = passos.map(([rot, de, ate, t, cor], i) => `<tr><td>${rot}</td><td><div class="bar"><i style="left:${XP(Math.min(de, ate))}%;width:${i ? Math.max(1, Math.abs(XP(ate) - XP(de))) : 0.8}%;background:${cor}"></i></div></td><td>${t}</td></tr>`).join('') +
-    `<tr class="tot"><td>Previsão</td><td><div class="bar"><i style="left:${XP(v)}%;width:1.2%;background:var(--amendoim);height:14px;top:-2px"></i></div></td><td>${fmt(v)}</td></tr>`;
+  q('[data-f-porque]').innerHTML = passos.map(([rot, de, ate, t, cor, d], i) => `<tr${balao(rot, ...d)}><td>${rot}</td><td><div class="bar"><i style="left:${XP(Math.min(de, ate))}%;width:${i ? Math.max(1, Math.abs(XP(ate) - XP(de))) : 0.8}%;background:${cor}"></i></div></td><td>${t}</td></tr>`).join('') +
+    `<tr class="tot"${balao(`Previsão ${fmt(v)} kg/ha`, `${fmt(m.media)} ${sinal(M.b)} ${sinal(cl)} = <b>${fmt(v)}</b>`, 'média recente + tendência + efeito do clima')}><td>Previsão</td><td><div class="bar"><i style="left:${XP(v)}%;width:1.2%;background:var(--amendoim);height:14px;top:-2px"></i></div></td><td>${fmt(v)}</td></tr>`;
   // Barras relativas ao maior efeito: escaladas pelo erro típico, sumiriam.
   const ex = explicar(c), EM = Math.max(1, ...ex.map(e => Math.abs(e.ef))), W = e => 50 * Math.abs(e.ef) / EM;
-  q('[data-f-vars]').innerHTML = ex.map(e => `<div class="sh"><span class="sh-n">${CURTO[e.k]}<small>${fmt(e.v, DEC[e.k])} ${UN[e.k]} · média ${fmt(e.ref, DEC_REF[e.k])}</small></span>` +
+  const dicaVar = e => { const i = COL.indexOf(e.k);
+    return balao(ROT[e.k], `usado <b>${fmt(e.v, DEC[e.k])} ${UN[e.k]}</b> · média do treino <b>${fmt(e.ref, DEC_REF[e.k])} ${UN[e.k]}</b>`,
+      `efeito na previsão (valor SHAP): <b>${sinal(e.ef)} kg/ha</b>`,
+      `cada ${fmt(M.sd[i], DEC[e.k] || 1)} ${UN[e.k]} a mais muda a previsão em ${sinal(M.coef[i])} kg/ha`); };
+  q('[data-f-vars]').innerHTML = ex.map(e => `<div class="sh"${dicaVar(e)}><span class="sh-n">${CURTO[e.k]}<small>${fmt(e.v, DEC[e.k])} ${UN[e.k]} · média ${fmt(e.ref, DEC_REF[e.k])}</small></span>` +
     `<span class="sh-b"><i style="left:${e.ef >= 0 ? 50 : 50 - W(e)}%;width:${Math.max(0.6, W(e))}%;background:${e.ef >= 0 ? '#86B06F' : '#D45A43'}"></i></span><b>${sinal(e.ef)}</b></div>`).join('') +
     `<p class="nota">Cada linha compara o clima usado com o clima médio das safras do treino, do que mais pesou ao que menos pesou. Somadas dão o ${NOME_EFEITO_CLIMA.toLowerCase()} (${sinal(cl)}). É o valor SHAP de cada variável, exato porque o modelo é linear. Efeito menor que o erro típico (±${fmt(ERRO)}) fica dentro do erro do modelo.</p>`;
 
@@ -565,6 +615,17 @@ function spark(m, v) {
   g += `<path d="${d}" fill="none" stroke="#BDAC97" stroke-width="1.3"/>`;
   ANOS.forEach((a, i) => { const h = m.hist[i]; if (h) g += `<circle cx="${X(a)}" cy="${Y(h.r)}" r="2.6" fill="${valida(h) ? (COR[TER[m.nome][a]] || '#8B7A69') : '#1C1611'}" stroke="${valida(h) ? 'none' : '#8B7A69'}"/>`; });
   g += `<rect x="${X(D.proxima) - 4}" y="${Y(v + ERRO)}" width="8" height="${Y(v - ERRO) - Y(v + ERRO)}" rx="2" fill="rgba(242,234,221,.14)"/><circle cx="${X(D.proxima)}" cy="${Y(v)}" r="4.5" fill="#D6A26B"/>`;
+  // Uma coluna invisível por safra, por cima dos pontos: o ponto sozinho é
+  // pequeno demais para o mouse achar.
+  const cw = X(ANOS[0] + 1) - X(ANOS[0]);
+  [...ANOS, D.proxima].forEach((a, i) => {
+    const h = m.hist[i], prox = a === D.proxima;
+    if (!prox && !h) return;
+    const t = prox ? balao(`Safra ${a}, prevista`, `<b>${fmt(v)} kg/ha</b> · ${cenTxt(m)}`, `faixa ${fmt(v - ERRO)} a ${fmt(v + ERRO)}`)
+      : balao(`Safra ${a}`, `<b>${fmt(h.r)} kg/ha</b>`, TER[m.nome][a] && `ano ${TER[m.nome][a].toLowerCase()} na chuva de dez a fev`,
+        h.ac == null ? 'área colhida não informada' : `${fmt(h.ac)} ha colhidos${valida(h) ? '' : `: menos de ${D.areaMin}, fora do modelo`}`);
+    g += `<rect class="hov" x="${X(a) - cw / 2}" y="0" width="${cw}" height="${H - 12}"${t}/>`;
+  });
   $('[data-dir]').querySelector('[data-f-spark]').innerHTML = `<svg viewBox="0 0 ${W} ${H}">${g}</svg><p class="nota" style="margin-top:6px">Cada ponto tem a cor do clima que a safra teve: <span style="color:${COR.Seco}">seco</span>, <span style="color:${COR.Normal}">normal</span> ou <span style="color:${COR.Chuvoso}">chuvoso</span>. Vazado: menos de ${D.areaMin} ha, fora do modelo.</p>`;
 }
 
@@ -677,7 +738,9 @@ function comparar(el) {
     g += `<text x="0" y="${y + 5}" style="font-family:var(--sans);font-size:15px;font-weight:600;fill:#F2EADD">${esc(m.nome)}</text>` +
       `<rect x="${X(v - ERRO)}" y="${y - 11}" width="${X(v + ERRO) - X(v - ERRO)}" height="22" rx="4" fill="rgba(242,234,221,.08)" stroke="rgba(242,234,221,.18)"/>` +
       CEN.map(c => c === S.cen ? '' : `<line x1="${X(m.prev[c])}" x2="${X(m.prev[c])}" y1="${y - 7}" y2="${y + 7}" stroke="${COR[c]}" stroke-width="2"/>`).join('') +
-      `<circle cx="${X(v)}" cy="${y}" r="7" fill="${PIN[i]}" stroke="#14100C" stroke-width="2"/><text x="${X(v)}" y="${y - 15}" text-anchor="middle" style="fill:#F2EADD;font-size:11px">${fmt(v)}</text>`; });
+      `<circle cx="${X(v)}" cy="${y}" r="7" fill="${PIN[i]}" stroke="#14100C" stroke-width="2"/><text x="${X(v)}" y="${y - 15}" text-anchor="middle" style="fill:#F2EADD;font-size:11px">${fmt(v)}</text>` +
+      `<rect class="hov" x="0" y="${i * rh}" width="${W}" height="${rh}"${balao(esc(m.nome), `<b>${fmt(v)} kg/ha</b> · ${cenTxt(m)}`, `faixa ${fmt(v - ERRO)} a ${fmt(v + ERRO)}`,
+        'traços: ' + CEN.filter(c => c !== S.cen).map(c => `${c.toLowerCase()} ${fmt(m.prev[c])}`).join(' · '))}/>`; });
   const dif = Math.max(...vs) - Math.min(...vs);
   const H2 = 230, X2 = lin(ANOS[0], D.proxima, 40, W - 10), Y2 = lin(0, 7000, H2 - 22, 8);
   let g2 = '';
@@ -688,6 +751,13 @@ function comparar(el) {
     ANOS.forEach((a, j) => { const h = m.hist[j]; if (!valida(h)) { ant = false; return; } d += (ant ? 'L' : 'M') + X2(a).toFixed(1) + ',' + Y2(h.r).toFixed(1); ant = true; });
     const x = X2(D.proxima) + (i - 1.5) * 5;
     g2 += `<path d="${d}" fill="none" stroke="${PIN[i]}" stroke-width="1.8" stroke-opacity=".9"/><line x1="${x}" x2="${x}" y1="${Y2(vs[i] + ERRO)}" y2="${Y2(vs[i] - ERRO)}" stroke="${PIN[i]}" stroke-opacity=".35" stroke-width="3"/><circle cx="${x}" cy="${Y2(vs[i])}" r="4.5" fill="${PIN[i]}"/>`; });
+  const cw2 = X2(ANOS[0] + 1) - X2(ANOS[0]), pino = (m, i, txt) => `<i style="background:${PIN[i]}"></i>${esc(m.nome)}: <b>${txt}</b>`;
+  [...ANOS, D.proxima].forEach((a, j) => {
+    const prox = a === D.proxima;
+    if (!prox && !sel.some(m => valida(m.hist[j]))) return;
+    const linhas = sel.map((m, i) => prox ? pino(m, i, `${fmt(vs[i])} kg/ha`) : pino(m, i, valida(m.hist[j]) ? `${fmt(m.hist[j].r)} kg/ha` : '—'));
+    g2 += `<rect class="hov" x="${X2(a) - cw2 / 2}" y="0" width="${cw2}" height="${H2 - 18}"${balao(prox ? `Safra ${a}, prevista no cenário ${S.cen.toLowerCase()}` : `Safra ${a}`, ...linhas)}/>`;
+  });
   const melhor = (f, max = true) => { const xs = sel.map(f); const a = max ? Math.max(...xs) : Math.min(...xs); return xs.map(x => x === a && new Set(xs).size > 1); };
   const mPerda = melhor(m => m.prev.Seco - m.prev.Normal), mErro = melhor(m => erroLocal(m) ?? Infinity, false);
   el.innerHTML = `<div class="sobre-in">${cab('Comparar municípios', 'Mesmo cenário para todos: ' + S.cen.toLowerCase())}
@@ -718,20 +788,32 @@ function boletim(el) {
   let d = '', ant = false;
   ANOS.forEach((a, i) => { const h = m.hist[i]; if (!h) { ant = false; return; } d += (ant ? 'L' : 'M') + X(a) + ',' + Y(h.r); ant = true; });
   g += `<path d="${d}" fill="none" stroke="#F2EADD" stroke-width="1.6"/>`;
-  ANOS.forEach((a, i) => { const h = m.hist[i]; if (h) { const c = corRend(clamp(h.r, E0, E1 - 1)); g += `<circle cx="${X(a)}" cy="${Y(h.r)}" r="4.2" fill="${valida(h) ? c : '#14100C'}" stroke="${valida(h) ? '#14100C' : c}" stroke-width="1.4"><title>${a}: ${fmt(h.r)} kg/ha</title></circle>`; } });
+  ANOS.forEach((a, i) => { const h = m.hist[i]; if (h) { const c = corRend(clamp(h.r, E0, E1 - 1)); g += `<circle cx="${X(a)}" cy="${Y(h.r)}" r="4.2" fill="${valida(h) ? c : '#14100C'}" stroke="${valida(h) ? '#14100C' : c}" stroke-width="1.4"/>`; } });
   if (v != null) g += `<circle cx="${X(D.proxima)}" cy="${Y(v)}" r="6" fill="${COR[S.cen]}" stroke="#14100C" stroke-width="2"/>`;
+  const area = h => h.ac == null ? 'área colhida não informada' : `${fmt(h.ac)} ha colhidos${valida(h) ? '' : `: menos de ${D.areaMin}, fora do modelo`}`;
+  anos.forEach((a, i) => {
+    const h = m.hist[i], prox = a === D.proxima, w = m.wf.find(x => x.a === a);
+    if (prox ? v == null : !h) return;
+    const t = prox ? balao(`Safra ${a}, prevista`, `<b>${fmt(v)} kg/ha</b> · ${cenTxt(m)}`, `faixa ${fmt(v - ERRO)} a ${fmt(v + ERRO)}`)
+      : balao(`Safra ${a}`, `rendimento <b>${fmt(h.r)} kg/ha</b>`,
+        w && `o modelo teria previsto <b>${fmt(w.p)}</b> sem ver a safra, ${fmt(Math.abs(w.p - w.r))} ${w.p > w.r ? 'acima' : 'abaixo'}`,
+        ter[a] && `ano ${ter[a].toLowerCase()} na chuva de dez a fev`, area(h));
+    g += `<rect class="hov" x="${X(a) - cw / 2}" y="0" width="${cw}" height="${H}"${t}/>`;
+  });
 
-  const cel = (txt, cor) => `<td style="background:${cor};color:${tinta(cor)}">${txt}</td>`;
+  const cel = (txt, cor, t = '') => `<td style="background:${cor};color:${tinta(cor)}"${t}>${txt}</td>`;
+  const TERCO = { Seco: 'o terço mais seco', Normal: 'o terço do meio', Chuvoso: 'o terço mais chuvoso' };
   const vazio = '<td style="background:transparent;color:var(--txt-3)">·</td>';
   const cAtual = v != null ? clima(m) : null;
   const linhaClima = (k, R) => { const xs = m.clima[k].filter(x => x != null), a = Math.min(...xs), b = Math.max(...xs), t = x => b > a ? (x - a) / (b - a) : 0.5, d = k === 'temp_max_critica_c' ? 1 : 0;
-    return `<tr><td class="r">${ROT[k]} <span class="nota">${UN[k]}</span></td>${ANOS.map((_, i) => { const x = m.clima[k][i]; return x == null ? vazio : cel(fmt(x, d), R(t(x))); }).join('')}${cAtual ? cel(fmt(cAtual[k], d), R(t(cAtual[k]))) : vazio}</tr>`; };
+    const dk = (tit, x) => balao(tit, `<b>${fmt(x, d)} ${UN[k]}</b>`, `${esc(m.nome)} já teve de ${fmt(a, d)} a ${fmt(b, d)} desde ${ANOS[0]}`);
+    return `<tr><td class="r">${ROT[k]} <span class="nota">${UN[k]}</span></td>${ANOS.map((ano, i) => { const x = m.clima[k][i]; return x == null ? vazio : cel(fmt(x, d), R(t(x)), dk(`${ROT[k]} em ${ano}`, x)); }).join('')}${cAtual ? cel(fmt(cAtual[k], d), R(t(cAtual[k])), dk(`${ROT[k]} no ${cenTxt(m)}`, cAtual[k])) : vazio}</tr>`; };
   const tab = `<table class="mg"><colgroup><col style="width:${lab / W * 100}%">${anos.map(() => '<col>').join('')}</colgroup>
     <thead><tr><th></th>${anos.map(a => `<th style="${a === D.proxima ? 'color:var(--txt)' : ''}">${String(a).slice(2)}</th>`).join('')}</tr></thead><tbody>
-    <tr><td class="r">Cenário do ano</td>${ANOS.map(a => ter[a] ? `<td style="background:${COR[ter[a]]};color:#14100C;font-weight:600">${ter[a][0]}</td>` : vazio).join('')}${v != null ? `<td style="background:${COR[S.cen]};color:#14100C;font-weight:600;outline:1px solid #F2EADD">${S.cen[0]}</td>` : vazio}</tr>
+    <tr><td class="r">Cenário do ano</td>${ANOS.map(a => ter[a] ? `<td style="background:${COR[ter[a]]};color:#14100C;font-weight:600"${balao(`Safra ${a}: ano ${ter[a].toLowerCase()}`, `a chuva de dez a fev caiu n${TERCO[ter[a]]} das safras de ${esc(m.nome)}`)}>${ter[a][0]}</td>` : vazio).join('')}${v != null ? `<td style="background:${COR[S.cen]};color:#14100C;font-weight:600;outline:1px solid #F2EADD">${S.cen[0]}</td>` : vazio}</tr>
     ${linhaClima('chuva_critica_mm', R_CHUVA)}${linhaClima('temp_max_critica_c', R_CALOR)}${linhaClima('dias_calor_critica', R_CALOR)}${linhaClima('radiacao_critica_mj_m2', R_NEUTRA)}
-    <tr><td class="r">Área colhida <span class="nota">ha</span></td>${ANOS.map((a, i) => { const h = m.hist[i]; return !h || h.ac == null ? vazio : `<td style="background:${valida(h) ? '#33281F' : 'transparent'};color:${valida(h) ? 'var(--txt)' : 'var(--seco)'}">${h.ac >= 1000 ? fmt(h.ac / 1000, 1) + 'k' : fmt(h.ac)}</td>`; }).join('')}${vazio}</tr>
-    <tr><td class="r">Erro do modelo <span class="nota">kg/ha</span></td>${ANOS.map(a => { const w = m.wf.find(x => x.a === a); if (!w) return vazio; const e = w.p - w.r, k = clamp(Math.abs(e) / 1500, 0, 1); return `<td style="background:${R_SECO(k)};color:${tinta(R_SECO(k))}">${e > 0 ? '+' : '−'}${fmt(Math.abs(e) / 1000, 1)}k</td>`; }).join('')}${vazio}</tr>
+    <tr><td class="r">Área colhida <span class="nota">ha</span></td>${ANOS.map((a, i) => { const h = m.hist[i]; return !h || h.ac == null ? vazio : `<td style="background:${valida(h) ? '#33281F' : 'transparent'};color:${valida(h) ? 'var(--txt)' : 'var(--seco)'}"${balao(`Área colhida em ${a}`, area(h))}>${h.ac >= 1000 ? fmt(h.ac / 1000, 1) + 'k' : fmt(h.ac)}</td>`; }).join('')}${vazio}</tr>
+    <tr><td class="r">Erro do modelo <span class="nota">kg/ha</span></td>${ANOS.map(a => { const w = m.wf.find(x => x.a === a); if (!w) return vazio; const e = w.p - w.r, k = clamp(Math.abs(e) / 1500, 0, 1); return `<td style="background:${R_SECO(k)};color:${tinta(R_SECO(k))}"${balao(`Erro do modelo em ${a}`, `previu <b>${fmt(w.p)}</b>, a safra deu <b>${fmt(w.r)}</b> kg/ha`, `previu ${fmt(Math.abs(e))} kg/ha ${e > 0 ? 'acima' : 'abaixo'}, sem ter visto a safra`)}>${e > 0 ? '+' : '−'}${fmt(Math.abs(e) / 1000, 1)}k</td>`; }).join('')}${vazio}</tr>
     </tbody></table>`;
   el.innerHTML = `<div class="sobre-in">${cab(esc(m.nome) + ': boletim das safras', `${ANOS[0]} a ${ANOS.at(-1)}${v != null ? ` e a previsão de ${D.proxima}` : ''}`)}
     <div class="cartao"><div class="rolar"><div><svg viewBox="0 0 ${W} ${H}" style="width:100%">${g}</svg>${tab}</div></div>
@@ -760,7 +842,8 @@ function metodo(el) {
     for (let k = 0; k <= mx; k += 600) g += `<line x1="50" x2="${W}" y1="${Y(k)}" y2="${Y(k)}" stroke="rgba(242,234,221,${k ? .06 : .2})"/><text x="42" y="${Y(k) + 3}" text-anchor="end">${fmt(k)}</text>`;
     anosT.forEach((a, j) => { const x = 50 + j * cw + cw / 2, x0 = x - (series.length * bw + (series.length - 1) * gap) / 2;
       series.forEach(([k, c], i) => { const v = T.mae_por_ano[k][a], dx = x0 + i * (bw + gap);
-        g += `<rect x="${dx}" y="${Y(v)}" width="${bw}" height="${Y(0) - Y(v)}" rx="3" fill="${c}"/><text x="${dx + bw / 2}" y="${Y(v) - 6}" text-anchor="middle" style="fill:#F2EADD;font-size:11px">${fmt(v)}</text>`; });
+        const papel = k === rv ? 'a régua sem clima, registrada antes de abrir o teste' : k === pt ? 'o modelo do painel' : 'sem corrigir a tendência';
+        g += `<rect x="${dx}" y="${Y(v)}" width="${bw}" height="${Y(0) - Y(v)}" rx="3" fill="${c}"${balao(`${esc(k)} · ${a}`, `erro médio de <b>${fmt(v)} kg/ha</b> nos municípios`, papel)}/><text x="${dx + bw / 2}" y="${Y(v) - 6}" text-anchor="middle" style="fill:#F2EADD;font-size:11px">${fmt(v)}</text>`; });
       g += `<text x="${x}" y="${H - 4}" text-anchor="middle" style="fill:#F2EADD;font-size:12px">${a}</text>`; });
     const notaMs = ms ? ` · <span style="color:#8B7A69">■</span> ${esc(ms)}, sem corrigir a tendência: no teste errou menos que o modelo (${fmt(TM[ms].mae)} contra ${fmt(TM[pt].mae)}), mas perdeu na validação, e a régua foi registrada antes de o teste ser aberto` : '';
     grafTeste = `<div class="cartao" style="margin-top:12px"><span class="rot">Erro médio por safra do teste, kg/ha</span><svg viewBox="0 0 ${W} ${H}" style="width:100%;margin-top:12px">${g}</svg><p class="nota" style="margin-top:8px"><span style="color:#5C4A3A">■</span> ${esc(rv)}, a régua sem clima${notaMs} · <span style="color:#D6A26B">■</span> ${esc(M.nome)}, o modelo do painel. Em 2024 a seca derrubou a safra e todos os palpites erraram muito.</p></div>`;
@@ -777,7 +860,8 @@ function metodo(el) {
   let g2 = `<line x1="${X(0)}" x2="${X(0)}" y1="0" y2="${H2}" stroke="rgba(242,234,221,.25)"/>`;
   fs.forEach((f, i) => { const y = i * rh + rh / 2;
     g2 += `<text x="0" y="${y + 4}" style="font-family:var(--sans);font-size:14px;fill:#F2EADD">${ROT[f.c]}</text><rect x="${Math.min(X(0), X(f.k))}" y="${y - 7}" width="${Math.abs(X(f.k) - X(0))}" height="14" rx="3" fill="${f.k < 0 ? '#D45A43' : '#86B06F'}"/>` +
-      `<text x="${X(f.k) + (f.k < 0 ? -8 : 8)}" y="${y + 4}" text-anchor="${f.k < 0 ? 'end' : 'start'}" style="fill:#F2EADD;font-size:11px">${sinal(f.k)}</text><text x="800" y="${y + 4}">uma variação típica = ${fmt(f.sd, DEC[f.c] || 1)} ${UN[f.c]}</text>`; });
+      `<text x="${X(f.k) + (f.k < 0 ? -8 : 8)}" y="${y + 4}" text-anchor="${f.k < 0 ? 'end' : 'start'}" style="fill:#F2EADD;font-size:11px">${sinal(f.k)}</text><text x="800" y="${y + 4}">uma variação típica = ${fmt(f.sd, DEC[f.c] || 1)} ${UN[f.c]}</text>` +
+      `<rect class="hov" x="0" y="${i * rh}" width="${W}" height="${rh}"${balao(ROT[f.c], `subir ${fmt(f.sd, DEC[f.c] || 1)} ${UN[f.c]} (uma variação típica) muda a previsão em <b>${sinal(f.k)} kg/ha</b>`, `com as outras variáveis paradas; a faixa de erro é ± ${fmt(ERRO)}`)}/>`; });
   const tr = (k, cols) => `<tr class="${k === pv || k === pt ? 'dest' : ''}"><td>${esc(k)}</td>${cols.map(c => `<td>${c}</td>`).join('')}</tr>`;
   // A régua não ganha de si mesma: na linha dela, "régua" no lugar de um "+0".
   const ganho = (k, v) => k === rv ? 'régua' : sinal(v);
