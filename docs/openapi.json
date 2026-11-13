@@ -802,17 +802,34 @@
             },
             "type": "object",
             "title": "Clima",
-            "description": "Contribuição de cada variável de clima."
+            "description": "Contribuição de cada variável de clima (valor SHAP, kg/ha)."
+          },
+          "referencia": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Referencia",
+            "description": "Clima médio das safras do treino: cada contribuição mede a distância do clima usado até ele.",
+            "examples": [
+              {
+                "chuva_critica_mm": 525.0,
+                "dias_calor_critica": 8.6,
+                "radiacao_critica_mj_m2": 22.0,
+                "temp_max_critica_c": 30.9
+              }
+            ]
           }
         },
         "type": "object",
         "required": [
           "media_recente",
           "tendencia",
-          "clima"
+          "clima",
+          "referencia"
         ],
         "title": "Decomposicao",
-        "description": "Partes que somam a previsão, em kg/ha."
+        "description": "Partes que somam a previsão, em kg/ha.\n\nÉ a explicação individual da previsão: com o modelo linear do painel, cada\ncontribuição de clima é o valor SHAP exato da variável, com as safras do\ntreino como fundo, e média recente + tendência é o valor base."
       },
       "Erro": {
         "properties": {

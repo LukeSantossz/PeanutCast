@@ -113,6 +113,9 @@ def test_ficha_com_decomposicao_que_soma_a_previsao(cliente):
     assert f["faixa"] == pytest.approx([2550.0, 3750.0])
     d = f["decomposicao"]
     assert d["media_recente"] + d["tendencia"] + sum(d["clima"].values()) == pytest.approx(f["previsao"])
+    # Cada contribuição é medida contra o clima médio do treino (o mu do modelo).
+    assert d["referencia"] == dict(zip(FALSO["colunas"], map(float, FALSO["modelo"]["mu"])))
+    assert d["clima"]["chuva_critica_mm"] == pytest.approx(100 * (600 - 500) / 100)
     assert f["cptec"] == {"cenario": "Chuvoso", "probabilidade": 0.45}
     assert f["historico"] == [{"ano": 2023, "rendimento_kg_ha": 2900, "area_colhida_ha": 1000, "producao_t": 2900}]
 
@@ -239,3 +242,5 @@ def test_simulacao_com_o_clima_normal_da_a_previsao_normal(real):
     assert r.json()["previsao"] == pytest.approx(m["prev"]["Normal"], abs=0.01)
     d = r.json()["decomposicao"]
     assert d["media_recente"] + d["tendencia"] + sum(d["clima"].values()) == pytest.approx(r.json()["previsao"])
+    assert list(d["referencia"]) == pacote["colunas"]
+    assert list(d["referencia"].values()) == pytest.approx(pacote["modelo"]["mu"])

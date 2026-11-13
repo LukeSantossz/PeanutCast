@@ -115,11 +115,21 @@ class PrevisaoSazonal(BaseModel):
 
 
 class Decomposicao(BaseModel):
-    """Partes que somam a previsão, em kg/ha."""
+    """Partes que somam a previsão, em kg/ha.
+
+    É a explicação individual da previsão: com o modelo linear do painel, cada
+    contribuição de clima é o valor SHAP exato da variável, com as safras do
+    treino como fundo, e média recente + tendência é o valor base.
+    """
 
     media_recente: float
     tendencia: float = Field(description="Quanto a safra fica acima da média recente com o clima médio.")
-    clima: dict[str, float] = Field(description="Contribuição de cada variável de clima.")
+    clima: dict[str, float] = Field(description="Contribuição de cada variável de clima (valor SHAP, kg/ha).")
+    referencia: dict[str, float] = Field(
+        description="Clima médio das safras do treino: cada contribuição mede a distância do clima usado até ele.",
+        examples=[{"chuva_critica_mm": 525.0, "temp_max_critica_c": 30.9,
+                   "radiacao_critica_mj_m2": 22.0, "dias_calor_critica": 8.6}],
+    )
 
 
 class Safra(BaseModel):
@@ -287,7 +297,8 @@ def _decompor(pacote, media, clima):
         c: coef * (clima[c] - mu) / sd
         for c, coef, mu, sd in zip(pacote["colunas"], p["coef"], p["mu"], p["sd"])
     }
-    return Decomposicao(media_recente=media, tendencia=p["b"], clima=partes)
+    referencia = dict(zip(pacote["colunas"], map(float, p["mu"])))
+    return Decomposicao(media_recente=media, tendencia=p["b"], clima=partes, referencia=referencia)
 
 
 def _faixa(pacote, previsao):
