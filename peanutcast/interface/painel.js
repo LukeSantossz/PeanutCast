@@ -23,6 +23,9 @@ const CURTO = { chuva_critica_mm: 'Chuva', temp_max_critica_c: 'Máxima', radiac
 const UN = { chuva_critica_mm: 'mm', temp_max_critica_c: '°C', radiacao_critica_mj_m2: 'MJ/m²', dias_calor_critica: 'dias' };
 const DEC = { chuva_critica_mm: 0, temp_max_critica_c: 1, radiacao_critica_mj_m2: 1, dias_calor_critica: 0 };
 const NOME_EFEITO_CLIMA = 'Efeito do clima simulado';
+// A referência da explicação é uma média: 8,6 dias de calor arredondado a 9
+// faria "9 dias · média 9" parecer efeito do nada.
+const DEC_REF = { ...DEC, dias_calor_critica: 1 };
 
 const soma = a => a.reduce((x, y) => x + y, 0);
 const mediana = a => { const s = [...a].sort((x, y) => x - y), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
@@ -56,6 +59,11 @@ const temPrev = m => m.media != null && !!m.cenarios;
 /* a mesma conta do previsao.prever: média + intercepto + Σ coef·(x − μ)/σ */
 const contrib = c => COL.map((k, i) => M.coef[i] * (c[k] - M.mu[i]) / M.sd[i]);
 const prever = (m, c) => m.media + M.b + soma(contrib(c));
+/* A explicação individual: o efeito de cada variável, medido contra o clima
+   médio das safras do treino (M.mu), do que mais pesou ao que menos pesou. Com
+   o modelo linear é o valor SHAP exato; previsao.shapley confere em Python. */
+const explicar = c => { const cs = contrib(c);
+  return COL.map((k, i) => ({ k, v: c[k], ref: M.mu[i], ef: cs[i] })).sort((a, b) => Math.abs(b.ef) - Math.abs(a.ef)); };
 const erroLocal = m => m.wf.length ? soma(m.wf.map(w => Math.abs(w.r - w.p))) / m.wf.length : null;
 
 /* Alerta de extrapolação. Os controles travam cada variável no mínimo e no
@@ -535,7 +543,11 @@ function fichaViva(m) {
   const todos = passos.flatMap(p => [p[1], p[2]]), XP = lin(Math.min(...todos) - 40, Math.max(...todos) + 40, 0, 100);
   q('[data-f-porque]').innerHTML = passos.map(([rot, de, ate, t, cor], i) => `<tr><td>${rot}</td><td><div class="bar"><i style="left:${XP(Math.min(de, ate))}%;width:${i ? Math.max(1, Math.abs(XP(ate) - XP(de))) : 0.8}%;background:${cor}"></i></div></td><td>${t}</td></tr>`).join('') +
     `<tr class="tot"><td>Previsão</td><td><div class="bar"><i style="left:${XP(v)}%;width:1.2%;background:var(--amendoim);height:14px;top:-2px"></i></div></td><td>${fmt(v)}</td></tr>`;
-  q('[data-f-vars]').innerHTML = COL.map((k, i) => `<span>${CURTO[k]} <b>${sinal(cs[i])}</b></span>`).join('') + `<span>todo o clima <b>${sinal(cl)}</b> · erro típico <b>±${fmt(ERRO)}</b></span>`;
+  // Barras relativas ao maior efeito: escaladas pelo erro típico, sumiriam.
+  const ex = explicar(c), EM = Math.max(1, ...ex.map(e => Math.abs(e.ef))), W = e => 50 * Math.abs(e.ef) / EM;
+  q('[data-f-vars]').innerHTML = ex.map(e => `<div class="sh"><span class="sh-n">${CURTO[e.k]}<small>${fmt(e.v, DEC[e.k])} ${UN[e.k]} · média ${fmt(e.ref, DEC_REF[e.k])}</small></span>` +
+    `<span class="sh-b"><i style="left:${e.ef >= 0 ? 50 : 50 - W(e)}%;width:${Math.max(0.6, W(e))}%;background:${e.ef >= 0 ? '#86B06F' : '#D45A43'}"></i></span><b>${sinal(e.ef)}</b></div>`).join('') +
+    `<p class="nota">Cada linha compara o clima usado com o clima médio das safras do treino, do que mais pesou ao que menos pesou. Somadas dão o ${NOME_EFEITO_CLIMA.toLowerCase()} (${sinal(cl)}). É o valor SHAP de cada variável, exato porque o modelo é linear. Efeito menor que o erro típico (±${fmt(ERRO)}) fica dentro do erro do modelo.</p>`;
 
   q('[data-f-sl]').querySelectorAll('.sl').forEach((d, i) => { const k = d.dataset.k; d.querySelector('output').innerHTML = `${fmt(c[k], DEC[k])} <small>${UN[k]}</small>`; d.querySelector('.ef').textContent = sinal(cs[i]); });
   q('[data-f-reset]').disabled = !ajustado(m);
@@ -582,7 +594,7 @@ function fichaHtml(m, cen, c) {
   const viz = D.municipios.filter(x => x.celula === m.celula && x !== m).length, nome = esc(m.nome);
   const linha = (...tds) => `<tr>${tds.map(t => `<td>${t}</td>`).join('')}</tr>`;
   const porque = linha(`Média ${m.anosMedia[0]}–${m.anosMedia.at(-1)}`, fmt(m.media)) + linha('Tendência de alta', sinal(M.b)) +
-    COL.map((k, i) => linha(`${ROT[k]}: ${fmt(c[k], DEC[k])} ${UN[k]}`, sinal(cs[i]))).join('') +
+    explicar(c).map(e => linha(`${ROT[e.k]}: ${fmt(e.v, DEC[e.k])} ${UN[e.k]} <span class="nota">(média ${fmt(e.ref, DEC_REF[e.k])})</span>`, sinal(e.ef))).join('') +
     `<tr class="tot"><td>Previsão</td><td>${fmt(v)}</td></tr>`;
   const cenarios = CEN.map(k => `<tr class="${k === cen ? 'sel' : ''}"><td><i style="background:${COR[k]}"></i>${k}${k === cen && aj ? ' ajustado' : ''}</td><td>${fmt((k === cen ? c : m.cenarios[k]).chuva_critica_mm)} mm</td><td>${fmt(k === cen ? v : m.prev[k])}</td></tr>`).join('');
   const climaTab = COL.map(k => linha(`${ROT[k]} <span class="nota">${UN[k]}</span>`, fmt(c[k], DEC[k]), `${fmt(m.lim[k][0], DEC[k])} a ${fmt(m.lim[k][1], DEC[k])}`)).join('');
@@ -602,7 +614,7 @@ ${alerta(m, c) ? `<p class="alerta">${alerta(m, c)}</p>` : ''}
 <table><tr><th>Cenário</th><th>Chuva de dez a fev</th><th>kg/ha</th></tr>${cenarios}</table>
 <p class="nota">Perda no ano seco: ${sinal(m.prev.Seco - m.prev.Normal)} kg/ha. Erro do modelo aqui: ${m.wf.length ? `± ${fmt(erroLocal(m))} kg/ha em ${m.wf.length} safras` : 'sem safras para medir'}.</p>
 <h2>Por que esse número, em kg/ha</h2>
-<p class="nota"><b>${NOME_EFEITO_CLIMA}:</b> soma das quatro contribuições abaixo.</p>
+<p class="nota"><b>${NOME_EFEITO_CLIMA}:</b> soma das quatro contribuições abaixo, da que mais pesou para a que menos pesou. Cada uma compara o clima usado com o clima médio das safras do treino: é o valor SHAP da variável, exato porque o modelo é linear.</p>
 <table class="porque">${porque}</table>
 <h2>Clima usado e o que ${nome} já teve desde ${ANOS[0]}</h2>
 <table class="clima"><tr><th>Variável</th><th>Usado</th><th>Mínimo a máximo</th></tr>${climaTab}</table>
@@ -801,7 +813,7 @@ function ouvirJanela() {
 }
 
 // O Streamlit só usa o default; estes servem a tests/test_ficha.py, que roda a ficha no Node.
-export { iniciar, fichaHtml, exportarFicha, vizinha, S, mudarCenario, notaCptec, notaRegiao, ordem };
+export { iniciar, fichaHtml, exportarFicha, vizinha, explicar, S, mudarCenario, notaCptec, notaRegiao, ordem };
 
 export default function (component) {
   const { data, parentElement, setTriggerValue } = component;

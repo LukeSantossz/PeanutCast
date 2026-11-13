@@ -143,9 +143,13 @@ code{font-family:var(--mono);font-size:.92em;color:var(--txt);background:var(--s
 .porque .bar{position:relative;height:10px}
 .porque .bar i{position:absolute;top:0;height:10px;border-radius:2px;transition:left .5s,width .5s}
 .porque tr.tot td{border-top:1px solid var(--linha-2);padding-top:9px;font-weight:700}
-.vars{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
-.vars span{font-size:11.5px;background:var(--solo-2);border-radius:4px;padding:3px 7px;color:var(--txt-2)}
-.vars b{font-family:var(--mono);font-weight:500;color:var(--txt)}
+.vars{display:grid;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--linha-2)}
+.sh{display:grid;grid-template-columns:minmax(0,1fr) 110px 58px;align-items:center;gap:10px;font-size:13.5px}
+.sh-n small{display:block;font-size:11.5px;color:var(--txt-2)}
+.sh-b{position:relative;height:10px;background:linear-gradient(var(--linha-2),var(--linha-2)) center/1px 100% no-repeat}
+.sh-b i{position:absolute;top:0;height:10px;border-radius:2px}
+.sh b{text-align:right;font-family:var(--mono);font-weight:500;font-size:13px;color:var(--txt)}
+.vars .nota{margin-top:2px}
 .sl{padding:7px 0 5px}
 .sl-top{display:flex;justify-content:space-between;font-size:13px}
 .sl-top output{font-family:var(--mono);font-size:12.5px}

@@ -56,10 +56,19 @@ iniciar(pacote);
 const mun = Object.fromEntries(pacote.municipios.map(m => [m.nome, m]));
 process.stdout.write(JSON.stringify(pedidos.map(p => vizinha(mun[p.nome], p.c))));
 """
+# explicar() de painel.js: o efeito de cada variável, por pedido {nome, c}.
+EXPLICAR = """
+import { readFileSync } from 'node:fs';
+const { iniciar, explicar } = await import(process.argv[1]);
+const { pacote, pedidos } = JSON.parse(readFileSync(0, 'utf8'));
+iniciar(pacote);
+process.stdout.write(JSON.stringify(pedidos.map(p => explicar(p.c))));
+"""
 LONGE = 1.5  # o limite do alerta em painel.js, em desvios típicos
 ROT = {"chuva_critica_mm": "Chuva", "temp_max_critica_c": "Máxima média",
        "radiacao_critica_mj_m2": "Radiação", "dias_calor_critica": "Dias acima de 35 °C"}
 DEC = {"chuva_critica_mm": 0, "temp_max_critica_c": 1, "radiacao_critica_mj_m2": 1, "dias_calor_critica": 0}
+DEC_REF = dict(DEC, dias_calor_critica=1)  # a referência é média: dias com uma casa
 
 
 @pytest.fixture(scope="module")
@@ -220,6 +229,46 @@ def test_porque_soma_a_previsao(modulo, pacote):
         assert total[0] == "Previsão", p
         # Cada parte vem arredondada ao kg: a soma pode errar meio kg por linha.
         assert abs(sum(numero(parte[-1]) for parte in partes) - numero(total[-1])) <= 0.5 * len(linhas), p
+
+
+def efeitos(pacote, clima):
+    """O efeito SHAP de cada variável em Python, como previsao.decompor."""
+    M = pacote["modelo"]
+    return {c: k * (clima[c] - mu) / sd for c, k, mu, sd in zip(pacote["colunas"], M["coef"], M["mu"], M["sd"])}
+
+
+def test_explicar_ordena_pelo_efeito_e_traz_a_referencia(modulo, pacote):
+    pedidos = [{"nome": m["nome"], "c": c} for m in com_previsao(pacote)[:4] for c in climas_de_teste(m)]
+    saida = subprocess.run(
+        [NODE, "--input-type=module", "-e", EXPLICAR, modulo],
+        input=json.dumps({"pacote": pacote, "pedidos": pedidos}),
+        capture_output=True, text=True, encoding="utf-8", check=True,
+    )
+    mu = dict(zip(pacote["colunas"], pacote["modelo"]["mu"]))
+    for p, lista in zip(pedidos, json.loads(saida.stdout)):
+        esperado = efeitos(pacote, p["c"])
+        assert sorted(e["k"] for e in lista) == sorted(previsao.COLUNAS), p
+        tamanhos = [abs(e["ef"]) for e in lista]
+        assert tamanhos == sorted(tamanhos, reverse=True), p
+        for e in lista:
+            assert e["ef"] == pytest.approx(esperado[e["k"]]), p
+            assert e["v"] == p["c"][e["k"]] and e["ref"] == pytest.approx(mu[e["k"]]), p
+
+
+def test_ficha_exportada_explica_cada_variavel(modulo, pacote):
+    ms = com_previsao(pacote)
+    pedidos = [{"nome": m["nome"], "cen": c} for m in ms for c in previsao.CENARIOS]
+    mu = dict(zip(pacote["colunas"], pacote["modelo"]["mu"]))
+    for p, html in zip(pedidos, fichas(modulo, pacote, pedidos)):
+        clima = next(m for m in ms if m["nome"] == p["nome"])["cenarios"][p["cen"]]
+        ordem = sorted(previsao.COLUNAS, key=lambda c: -abs(efeitos(pacote, clima)[c]))
+        linhas = tabelas(html)["porque"][2:-1]
+        for coluna, (rotulo, valor) in zip(ordem, linhas):
+            casas = DEC[coluna]
+            assert rotulo.startswith(f"{ROT[coluna]}: {br(clima[coluna], casas)}"), (p, rotulo)
+            assert f"média {br(mu[coluna], DEC_REF[coluna])}" in rotulo, (p, rotulo)
+            assert numero(valor) == pytest.approx(efeitos(pacote, clima)[coluna], abs=0.5), (p, rotulo)
+        assert "SHAP" in html, p
 
 
 def test_ficha_nomeia_efeito_climatico(modulo, pacote):
